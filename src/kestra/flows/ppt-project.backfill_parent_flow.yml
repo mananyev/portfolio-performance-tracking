@@ -1,0 +1,54 @@
+id: backfill_parent_flow
+namespace: ppt-project
+
+inputs:
+  - id: tickers_file
+    type: FILE
+  - id: backfill_all
+    type: BOOLEAN
+  - id: backfill_since
+    type: STRING
+  - id: backfill_at
+    type: STRING
+
+tasks:
+  - id: extract
+    type: io.kestra.plugin.serdes.csv.CsvToIon
+    from: "{{ inputs.tickers_file }}"
+    header: false
+    skipRows: 1
+  
+  - id: create_all_tickers_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      CREATE TABLE IF NOT EXISTS public.all_tickers_prices (
+          unique_row_id text,
+          ticker        text,
+          date          date,
+          open          double precision,
+          high          double precision,
+          low           double precision,
+          close         double precision,
+          volume        bigint,
+          dividends     double precision,
+          stock_splits  real
+      );
+
+  - id: each_raw
+    type: io.kestra.plugin.core.flow.ForEachItem
+    items: "{{ outputs.extract.uri }}"
+    namespace: ppt-project
+    flowId: subflow_ticker_history
+    inputs:
+      string_input: "{{ read(taskrun.items) }}"
+      backfill_all: "{{ inputs.backfill_all }}"
+      backfill_since: "{{ inputs.backfill_since }}"
+      backfill_at: "{{ inputs.backfill_at }}"
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.jdbc.postgresql
+    values:
+      url: jdbc:postgresql://host.docker.internal:5432/postgres-ppt
+      username: kestra
+      password: k3str4

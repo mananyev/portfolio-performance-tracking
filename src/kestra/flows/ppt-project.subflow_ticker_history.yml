@@ -1,0 +1,118 @@
+id: subflow_ticker_history
+namespace: ppt-project
+
+inputs:
+  - id: string_input
+    type: STRING
+    defaults: NVDA
+  - id: backfill_all
+    type: BOOLEAN
+  - id: backfill_since
+    type: STRING
+  - id: backfill_at
+    type: STRING
+
+variables:
+  ticker_history_file: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
+  table: "{{outputs.for_each_ticker.vars.ticker}}"
+
+tasks:
+  - id: for_each_ticker
+    type: io.kestra.plugin.scripts.python.Commands
+    namespaceFiles:
+      enabled: true
+    beforeCommands:
+      - pip install yfinance html5lib kestra
+    containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+    env:
+      ticker: "{{inputs.string_input }}"
+      backfill_since: "{{inputs.backfill_since}}"
+      backfill_at: "{{inputs.backfill_at}}"
+      backfill_all: "{{inputs.backfill_all}}"
+    commands:
+      - python scripts/price_history.py
+    outputFiles:
+      - price_history.csv
+  
+  - id: create_single_ticker_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      CREATE TABLE IF NOT EXISTS {{render(vars.table)}} (
+          unique_row_id text,
+          ticker        text,
+          date          date,
+          open          double precision,
+          high          double precision,
+          low           double precision,
+          close         double precision,
+          volume        bigint,
+          dividends     double precision,
+          stock_splits  real
+      );
+
+  - id: truncate_single_ticker_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      TRUNCATE TABLE {{render(vars.table)}};
+  
+  - id: copy_in_ticker_data
+    type: io.kestra.plugin.jdbc.postgresql.CopyIn
+    format: CSV
+    from: "{{render(vars.ticker_history_file)}}"
+    table: "{{render(vars.table)}}"
+    header: true
+    columns: [ticker, date, open, high, low, close, volume, dividends, stock_splits]
+
+  - id: add_unique_id_and_filename
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      UPDATE {{render(vars.table)}}
+      SET 
+        unique_row_id = md5(
+          COALESCE(CAST(ticker AS text), '') ||
+          COALESCE(CAST(date AS text), '')
+        );
+
+  - id: merge_ticker_data
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      MERGE INTO public.all_tickers_prices AS M
+      USING {{render(vars.table)}} AS T
+      ON M.unique_row_id = T.unique_row_id
+      WHEN NOT MATCHED THEN
+        INSERT (
+          unique_row_id,
+          ticker,
+          date,
+          open,
+          high,
+          low,
+          close,
+          volume,
+          dividends,
+          stock_splits
+        )
+        VALUES (
+          T.unique_row_id,
+          T.ticker,
+          T.date,
+          T.open,
+          T.high,
+          T.low,
+          T.close,
+          T.volume,
+          T.dividends,
+          T.stock_splits
+        );
+  
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: To avoid cluttering your storage, we will remove the downloaded files
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.jdbc.postgresql
+    values:
+      url: jdbc:postgresql://host.docker.internal:5432/postgres-ppt
+      username: kestra
+      password: k3str4

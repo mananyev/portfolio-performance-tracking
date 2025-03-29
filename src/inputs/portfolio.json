@@ -1,0 +1,20 @@
+{
+    "NVDA": {
+        "type": "buy",
+        "timestamp": "2023-11-05 20:21:02.34",
+        "volume": "5",
+        "volume_type": "shares"
+    },
+    "AAPL": {
+        "type": "buy",
+        "timestamp": "2024-05-05 13:11:22.00",
+        "volume": "3",
+        "volume_type": "shares"
+    },
+    "TSLA": {
+        "type": "buy",
+        "timestamp": "2024-11-05 19:11:11.05",
+        "volume": "5",
+        "volume_type": "shares"
+    }
+}

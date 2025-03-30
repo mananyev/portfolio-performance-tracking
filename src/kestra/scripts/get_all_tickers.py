@@ -5,6 +5,7 @@ import json
 import io
 import os
 from modules import fuzzy_search
+from kestra import Kestra
 
 
 test_run = (os.getenv('test_run') == 'true')
@@ -89,4 +90,5 @@ for k, v in companies_list_pages.items():
     if test_run:
         break
 
+Kestra.outputs({'all_tickers': sorted(all_tickers.index.tolist())})
 all_tickers[all_tickers.index.notnull()].to_csv("all_tickers.csv", index=True)

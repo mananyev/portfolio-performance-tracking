@@ -1,6 +1,7 @@
 id: subflow_ticker_history
 namespace: ppt-project
 
+
 inputs:
   - id: string_input
     type: STRING
@@ -12,9 +13,11 @@ inputs:
   - id: backfill_at
     type: STRING
 
+
 variables:
-  ticker_history_file: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
+  # ticker_history_file: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
   table: "{{outputs.for_each_ticker.vars.ticker}}"
+
 
 tasks:
   - id: for_each_ticker
@@ -58,7 +61,7 @@ tasks:
   - id: copy_in_ticker_data
     type: io.kestra.plugin.jdbc.postgresql.CopyIn
     format: CSV
-    from: "{{render(vars.ticker_history_file)}}"
+    from: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
     table: "{{render(vars.table)}}"
     header: true
     columns: [ticker, date, open, high, low, close, volume, dividends, stock_splits]

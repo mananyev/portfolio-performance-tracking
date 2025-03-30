@@ -1,9 +1,10 @@
 id: backfill_parent_flow
 namespace: ppt-project
 
+
 inputs:
-  - id: tickers_file
-    type: FILE
+  - id: test_run
+    type: BOOLEAN
   - id: backfill_all
     type: BOOLEAN
   - id: backfill_since
@@ -11,39 +12,114 @@ inputs:
   - id: backfill_at
     type: STRING
 
-tasks:
-  - id: extract
-    type: io.kestra.plugin.serdes.csv.CsvToIon
-    from: "{{ inputs.tickers_file }}"
-    header: false
-    skipRows: 1
-  
-  - id: create_all_tickers_table
-    type: io.kestra.plugin.jdbc.postgresql.Queries
-    sql: |
-      CREATE TABLE IF NOT EXISTS public.all_tickers_prices (
-          unique_row_id text,
-          ticker        text,
-          date          date,
-          open          double precision,
-          high          double precision,
-          low           double precision,
-          close         double precision,
-          volume        bigint,
-          dividends     double precision,
-          stock_splits  real
-      );
 
-  - id: each_raw
-    type: io.kestra.plugin.core.flow.ForEachItem
-    items: "{{ outputs.extract.uri }}"
-    namespace: ppt-project
-    flowId: subflow_ticker_history
-    inputs:
-      string_input: "{{ read(taskrun.items) }}"
-      backfill_all: "{{ inputs.backfill_all }}"
-      backfill_since: "{{ inputs.backfill_since }}"
-      backfill_at: "{{ inputs.backfill_at }}"
+variables:
+  # all_tickers_table: "public.all_tickers_table"
+  all_tickers_names_data: "{{ outputs.get_all_tickers.outputFiles['all_tickers.csv'] }}"
+
+
+tasks:
+  - id: get_all_tickers_from_KV
+    type: io.kestra.plugin.core.kv.Get
+    key: all_tickers
+
+  - id: check_missing_KV
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ outputs.get_all_tickers_from_KV | length == 0 }}"
+    then:
+      - id: log_missing_tickers_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          Did not find tickers in KV.
+
+      - id: get_constituents_urls
+        type: io.kestra.plugin.core.http.Download
+        uri: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/main/src/inputs/index_constituents_links.json
+
+      - id: get_all_tickers
+        type: io.kestra.plugin.scripts.python.Commands
+        namespaceFiles:
+          enabled: true
+        beforeCommands:
+          - pip install yfinance beautifulsoup4 lxml kestra
+        containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+        env:
+          test_run: "{{ inputs.test_run }}"
+        inputFiles:
+          data.json: "{{ outputs.get_constituents_urls.uri }}"
+        outputFiles:
+          - "*.csv"
+        commands:
+          - python scripts/get_all_tickers.py
+  
+      - id: store_tickers_in_KV
+        type: io.kestra.plugin.core.kv.Set
+        kvType: JSON
+        key: all_tickers
+        value: "{{ outputs.get_all_tickers.vars.all_tickers }}"
+
+      # - id: all_tickers_create_table
+      #   type: io.kestra.plugin.jdbc.postgresql.Queries
+      #   sql:
+      #     CREATE TABLE IF NOT EXISTS {{ render(vars.all_tickers_table) }} (
+      #       ticker      text
+      #       , region    text
+      #       , exchange  text
+      #     );
+
+      # - id: copy_tickers_list_into_table
+      #   type: io.kestra.plugin.jdbc.postgresql.CopyIn
+      #   format: CSV
+      #   from: "{{ render(vars.all_tickers_names_data) }}"
+      #   table: "{{ render(vars.all_tickers_table) }}"
+      #   header: true
+      #   columns: [
+      #     ticker
+      #     , region
+      #     , exchange
+      #   ]
+    else:
+      - id: log_found_tickers_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          Found keys in KV
+    finally:
+      - id: read_tickers_list
+        type: io.kestra.plugin.core.kv.Get
+        key: all_tickers
+
+      - id: create_all_tickers_prices_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          CREATE TABLE IF NOT EXISTS public.all_tickers_prices (
+              unique_row_id text,
+              ticker        text,
+              date          date,
+              open          double precision,
+              high          double precision,
+              low           double precision,
+              close         double precision,
+              volume        bigint,
+              dividends     double precision,
+              stock_splits  real
+          );
+        description: |
+          Only create table (if exists) once for using in the subsequent loop
+
+      - id: loop_over_tickers
+        type: io.kestra.plugin.core.flow.ForEach
+        concurrencyLimit: 0
+        values: "{{ outputs.read_tickers_list['value'] | json }}"
+        tasks:
+          - id: subflow_run
+            type: io.kestra.plugin.core.flow.Subflow
+            namespace: ppt-project
+            flowId: subflow_ticker_history
+            inputs:
+              string_input: "{{ taskrun.value }}"
+              backfill_all: "{{ inputs.backfill_all }}"
+              backfill_since: "{{ inputs.backfill_since }}"
+              backfill_at: "{{ inputs.backfill_at }}"
 
 
 pluginDefaults:

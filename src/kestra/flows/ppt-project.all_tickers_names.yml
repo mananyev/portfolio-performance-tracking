@@ -4,8 +4,10 @@ description: |
   2do:
     - pulls the list of tickers by market.
 
+
 concurrency:
   limit: 1
+
 
 inputs:
   - id: whole_history
@@ -14,57 +16,28 @@ inputs:
   - id: test_run
     type: BOOLEAN
     defaults: true
-#   - id: tickers_list_links_file
-#     type: FILE
-#     displayName: Select a file with links to Wikipedia pages that contain lists of tickers.
-
-
-variables:
-  all_tickers_table: "public.all_tickers_table"
-  all_tickers_names_data: "{{ outputs.get_all_tickers.outputFiles['all_tickers.csv'] }}"
+  - id: reload_tickers_list
+    type: BOOLEAN
+    defaults: false
+  - id: reload_portfolio
+    type: BOOLEAN
+    defaults: false
+  # - id: portfolio_file
+  #   type: FILE
+  # - id: tickers_list_links_file
+  #   type: FILE
+  #   displayName: Select a file with links to Wikipedia pages that contain lists of tickers.
 
 
 tasks:
-  - id: get_constituents_urls
-    type: io.kestra.plugin.core.http.Download
-    uri: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/main/src/inputs/index_constituents_links.json
-
-  - id: get_all_tickers
-    type: io.kestra.plugin.scripts.python.Commands
-    namespaceFiles:
-      enabled: true
-    beforeCommands:
-      - pip install yfinance beautifulsoup4 lxml html5lib
-    containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
-    env:
-      test_run: "{{ inputs.test_run }}"
-    inputFiles:
-      data.json: "{{ outputs.get_constituents_urls.uri }}"
-    outputFiles:
-      - "*.csv"
-    commands:
-      - python scripts/get_all_tickers.py
-
-#   - id: all_tickers_create_table
-#     type: io.kestra.plugin.jdbc.postgresql.Queries
-#     sql:
-#       CREATE TABLE IF NOT EXISTS {{ render(vars.all_tickers_table) }} (
-#         ticker      text
-#         , region    text
-#         , exchange  text
-#       );
-
-#   - id: copy_tickers_list_into_table
-#     type: io.kestra.plugin.jdbc.postgresql.CopyIn
-#     format: CSV
-#     from: "{{ render(vars.all_tickers_names_data) }}"
-#     table: "{{ render(vars.all_tickers_table) }}"
-#     header: true
-#     columns: [
-#       ticker
-#       , region
-#       , exchange
-#     ]
+  - id: check_reload_tickers_list
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.reload_tickers_list == true}}"
+    then:
+      - id: clear_tickers_list
+        type: io.kestra.plugin.core.kv.Delete
+        key: all_tickers
+        errorOnMissing: false
 
   - id: update_data
     description: |
@@ -73,10 +46,26 @@ tasks:
     namespace: ppt-project
     flowId: backfill_parent_flow
     inputs:
-      tickers_file: "{{ render(vars.all_tickers_names_data) }}"
+      test_run: "{{ inputs.test_run }}"
       backfill_all: "{{ inputs.whole_history }}"
       backfill_since: "{{ trigger.previous ?? execution.startDate }}"
       backfill_at: "{{ trigger.date ?? execution.startDate }}"
+
+  - id: check_reload_portfolio
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.reload_portfolio == true}}"
+    then:
+      - id: clear_portfolio
+        type: io.kestra.plugin.core.kv.Delete
+        key: portfolio_tickers
+        errorOnMissing: false
+
+  - id: synchronize_portfolio
+    description: |
+      Checks if tickers used in portfolio are in the data base.
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: ppt-project
+    flowId: subflow_synchronize_portfolio
 
 
 triggers:

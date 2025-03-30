@@ -92,18 +92,32 @@ def pull_history(ticker: str, start: str=None, end: str=None) -> pd.DataFrame:
 def prepare_dataframe(data: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """Minor adjustments to the data frame."""
 
-    assert not data.empty, print("Empty data frame!")
+    # assert not data.empty, print("Empty data frame!")
 
     dat = data.reset_index()
-    out = pd.DataFrame(index=dat.index)
-    out['ticker'] = ticker
-    out['date'] = dat['Date'].dt.date
-    out['open'] = dat['Open']
-    out['high'] = dat['High']
-    out['low'] = dat['Low']
-    out['close'] = dat['Close']
-    out['volume'] = dat['Volume']
-    out['dividends'] = dat['Dividends']
-    out['stock_splits'] = dat['Stock Splits']    
+    out = pd.DataFrame(
+        index=dat.index,
+        columns=[
+            'ticker',
+            'date',
+            'open',
+            'high',
+            'low',
+            'close',
+            'volume',
+            'dividends',
+            'stock_splits',
+        ]
+    )
+    if not data.empty:
+        out['ticker'] = ticker
+        out['date'] = dat['Date'].dt.date
+        out['open'] = dat['Open']
+        out['high'] = dat['High']
+        out['low'] = dat['Low']
+        out['close'] = dat['Close']
+        out['volume'] = dat['Volume']
+        out['dividends'] = dat['Dividends']
+        out['stock_splits'] = dat['Stock Splits']    
 
     return out

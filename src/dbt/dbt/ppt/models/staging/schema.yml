@@ -1,0 +1,10 @@
+version: 1
+
+sources:
+  - name: staging
+    database: postgres-ppt
+    schema: public
+
+    tables:
+      - name: portfolio_positions
+      - name: all_tickers_prices

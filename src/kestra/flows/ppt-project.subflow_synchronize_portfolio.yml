@@ -4,6 +4,11 @@ description: |
   Synchronize portfolio tickers.
 
 
+variables:
+  all_tickers_names_data: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
+  portfolio_positions_table: "portfolio_positions"
+
+
 tasks:
   - id: get_portfolio_tickers_from_KV
     type: io.kestra.plugin.core.kv.Get
@@ -26,19 +31,23 @@ tasks:
         type: io.kestra.plugin.scripts.python.Script
         beforeCommands:
           - pip install kestra
-        # containerImage: python
+        containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
         inputFiles:
           portfolio.json: "{{ outputs.download_portfolio_file.uri }}"
-        # outputFiles:
-        #   - "*.csv"
+        outputFiles:
+          - "portfolio_positions.csv"
         script: |
           import json
+          import pandas as pd
           from kestra import Kestra
 
           with open("portfolio.json", 'r') as file:
               positions_data = json.load(file)
 
-          portfolio_tickers = [k for k in positions_data.keys()]
+          portfolio_tickers = sorted(list(set([k for k in positions_data.keys()])))
+          portfolio_df = pd.DataFrame(positions_data).T
+
+          portfolio_df.to_csv("portfolio_positions.csv", index=True)
           Kestra.outputs({'portfolio_tickers': portfolio_tickers})
 
       - id: store_portfolio_tickers_in_KV
@@ -46,6 +55,30 @@ tasks:
         kvType: JSON
         key: portfolio_tickers
         value: "{{ outputs.get_portfolio_tickers.vars.portfolio_tickers }}"
+
+      - id: create_portfolio_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          CREATE TABLE IF NOT EXISTS "{{ render(vars.portfolio_positions_table) }}" (
+            ticker      text,
+            type        text,
+            timestamp   timestamp,
+            volume      double precision,
+            volume_type text
+          );
+
+      - id: truncate_portfolio_positions_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          TRUNCATE TABLE "{{ render(vars.portfolio_positions_table) }}";
+
+      - id: copy_in_portfolio_positions_data
+        type: io.kestra.plugin.jdbc.postgresql.CopyIn
+        format: CSV
+        from: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
+        table: "{{ render(vars.portfolio_positions_table) }}"
+        header: true
+        columns: [ticker, type, timestamp, volume, volume_type]
     else:
       - id: log_found_portfolio_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
@@ -60,11 +93,11 @@ tasks:
         type: io.kestra.plugin.core.kv.Get
         key: all_tickers
 
-      - id: display_KV
-        type: io.kestra.plugin.core.log.Log
-        message: |
-          portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
-          all_tickers: "{{outputs.read_all_tickers_list.value}}"
+      # - id: display_KV
+      #   type: io.kestra.plugin.core.log.Log
+      #   message: |
+      #     portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
+      #     all_tickers: "{{outputs.read_all_tickers_list.value}}"
 
       - id: check_portfolio_tickers_in_all_tickers
         type: io.kestra.plugin.scripts.python.Script
@@ -143,3 +176,11 @@ tasks:
           - id: log_no_portfolio_tickers_missing
             type: io.kestra.plugin.core.log.Log
             message: All portfolio tickers are already in the data.
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.jdbc.postgresql
+    values:
+      url: "jdbc:postgresql://{{kv('POSTGRES_HOST')}}:{{kv('POSTGRES_PORT')}}/{{kv('POSTGRES_DB_NAME')}}"
+      username: "{{kv('POSTGRES_USER')}}"
+      password: "{{kv('POSTGRES_PWD')}}"

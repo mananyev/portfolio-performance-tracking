@@ -1,0 +1,30 @@
+id: set_postgres_kv
+namespace: ppt-project
+
+
+tasks:
+  - id: set_postgres_host
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_HOST
+    kvType: STRING
+    value: host.docker.internal  # do not change
+  - id: set_postgres_port
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_PORT
+    kvType: NUMBER
+    value: 5432  # if needed, change to the values you set in docker file
+  - id: set_postgres_db_name
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_DB_NAME
+    kvType: STRING
+    value: postgres-ppt  # if needed, change to the values you set in docker file
+  - id: set_postgres_user
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_USER
+    kvType: STRING
+    value: kestra  # if needed, change to the values you set in docker file
+  - id: set_postgres_password
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_PWD
+    kvType: STRING
+    value: k3str4  # if needed, change to the values you set in docker file

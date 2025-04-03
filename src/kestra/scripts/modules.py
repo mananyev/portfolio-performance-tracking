@@ -3,60 +3,60 @@ import pandas as pd
 from datetime import date
 
 
-def fuzzy_search(
-            ticker: str,
-            split: str='.',
-            n: int=0,
-            tried: list=[],
-            test: bool=False
-        ) -> str:
-    """Checks if ticker exists in Ticker.
-    If not, searches for the correct ticker code.
-    Returns None if ticker not found!
+def ticker_search(args) -> pd.DataFrame:
+    """Checks if ticker quotes exist in Ticker.
+    Attempts to find correct ticker (based on name and ticker symbol).
+    Returns an empty dataframe if not found.
     
     """
-    
-    quotes = yf.Search(ticker).quotes
-    if quotes:
-        types = [quotes[i]['quoteType'] for i in range(len(quotes))]
-        if 'EQUITY' in types:
-            idx = types.index('EQUITY')
-            if test:
-                print(f'quotes, equity, n={n}')
-            ticker = quotes[idx]['symbol']
-        else:
-            if split in tried:
-                return ticker.split(split)[0]
-            else:
-                tried = tried + [split,]
-                ticker_ = ticker.split(split)
-                if len(ticker_) > 1:
-                    if test:
-                        print(f"quotes, no equity, enter with sep: {split}, n={n}")
-                    ticker = fuzzy_search('-'.join(ticker_), '-', n+1, tried)
-                else:
-                    if test:
-                        print(f"quotes, no equity, splitted by: {split}, n={n}")
-                    ticker = fuzzy_search(ticker, '-', n+1, tried)
+
+    name, ticker = args.company, args.ticker
+    name = name.split('(')[0].strip()
+
+    merge_cols = [
+        'exchange',
+        'shortname',
+        'quoteType',
+        'symbol',
+        'index',
+        'typeDisp',
+        'longname',
+        'exchDisp',
+        'sector',
+        'sectorDisp',
+        'industry',
+        'industryDisp',
+        'isYahooFinance',
+    ]
+
+    quotes_name = yf.Search(name).quotes
+    if quotes_name:
+        q_df_name = pd.DataFrame(quotes_name)
+        missing_cols = list(set(merge_cols+['score',]) - set(q_df_name.columns.tolist()))
+        q_df_name[missing_cols] = ''
     else:
-        if split in tried:
-            return None
-        else:
-            tried = tried + [split,]
-            ticker_ = str(ticker).split(split)
-            if len(ticker_) > 1:
-                if test:
-                    print(f"no quotes, enter with sep: {split}, n={n}")
-                ticker = fuzzy_search('-'.join(ticker_), '-', n+1, tried)
-            else:
-                if test:
-                    print(f'no quotes, splitted by: {split}, n={n}')
-                ticker = fuzzy_search(ticker, '-', n+1, tried)
-        
-    if test:
-        print(f"current n (level): {n}, current ticker={ticker}")
-    
-    return ticker
+        q_df_name = pd.DataFrame(columns=merge_cols+['score',])
+    quotes_ticker = yf.Search(ticker).quotes
+    if quotes_ticker:
+        q_df_ticker = pd.DataFrame(quotes_ticker)
+        missing_cols = list(set(merge_cols+['score',]) - set(q_df_ticker.columns.tolist()))
+        q_df_ticker[missing_cols] = ''
+    else:
+        q_df_ticker = pd.DataFrame(columns=merge_cols+['score',])
+
+    df = pd.merge(
+        left=q_df_name,
+        right=q_df_ticker,
+        on=merge_cols,
+        how='left',
+    ).sort_values(by=['score_y', 'score_x'], ascending=False)
+    return_cols = ['symbol', 'longname', 'exchange', 'sector', 'industry']
+    if not df.empty:
+        df = df.iloc[0]
+    else:
+        df = pd.Series(index=return_cols)
+
+    return df[return_cols]
 
 
 def pull_history(ticker: str, start: str=None, end: str=None) -> pd.DataFrame:
@@ -85,6 +85,8 @@ def pull_history(ticker: str, start: str=None, end: str=None) -> pd.DataFrame:
 
     out = pd.DataFrame()
     out = yf.Ticker(ticker).history(**args)
+    if not out.empty:
+        out = out.loc[out.index.date < date.today()]
 
     return out
     

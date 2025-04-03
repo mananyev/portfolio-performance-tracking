@@ -4,6 +4,15 @@ description: |
   Synchronize portfolio tickers.
 
 
+inputs:
+  - id: backfill_all
+    type: BOOLEAN
+  - id: backfill_since
+    type: STRING
+  - id: backfill_at
+    type: STRING
+
+
 variables:
   all_tickers_names_data: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
   portfolio_positions_table: "portfolio_positions"
@@ -136,7 +145,7 @@ tasks:
             concurrencyLimit: 0
             values: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
             tasks:
-              - id: subflow_run
+              - id: subflow_run_backfill
                 type: io.kestra.plugin.core.flow.Subflow
                 namespace: ppt-project
                 flowId: subflow_ticker_history
@@ -176,6 +185,21 @@ tasks:
           - id: log_no_portfolio_tickers_missing
             type: io.kestra.plugin.core.log.Log
             message: All portfolio tickers are already in the data.
+        finally:
+          - id: load_portfolio_tickers_data
+            type: io.kestra.plugin.core.flow.ForEach
+            concurrencyLimit: 0
+            values: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
+            tasks:
+              - id: subflow_run
+                type: io.kestra.plugin.core.flow.Subflow
+                namespace: ppt-project
+                flowId: subflow_ticker_history
+                inputs:
+                  string_input: "{{ taskrun.value }}"
+                  backfill_all: "{{ inputs.backfill_all }}"
+                  backfill_since: "{{ inputs.backfill_since }}"
+                  backfill_at: "{{ inputs.backfill_at }}"
 
 
 pluginDefaults:

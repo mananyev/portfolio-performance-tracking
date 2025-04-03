@@ -1,0 +1,70 @@
+id: postgres_dbt
+namespace: ppt-project
+
+
+inputs:
+  - id: first_dbt_run
+    type: BOOLEAN
+    defaults: false
+  - id: dbt_command
+    type: SELECT
+    allowCustomValue: true
+    defaults: dbt build
+    values:
+      - dbt build
+      - dbt debug # use when running the first time to validate DB connection
+
+
+tasks:
+  - id: check_first_dbt_run
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ inputs.first_dbt_run == true }}"
+    then:
+      - id: sync
+        type: io.kestra.plugin.git.SyncNamespaceFiles
+        url: https://github.com/mananyev/portfolio-performance-tracking
+        branch: local/kestra
+        namespace: "{{ flow.namespace }}"
+        gitDirectory: src/dbt/dbt/ppt
+        dryRun: false
+
+  - id: dbt-build
+    type: io.kestra.plugin.dbt.cli.DbtCLI
+    env:
+      DBT_DATABASE: "{{ kv('POSTGRES_DB_NAME') }}"
+      DBT_SCHEMA: public
+    namespaceFiles:
+      enabled: true
+    containerImage: ghcr.io/kestra-io/dbt-postgres:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      networkMode: host
+    commands:
+      - dbt deps
+      - "{{ inputs.dbt_command }}"
+    storeManifest:
+      key: manifest.json
+      namespace: "{{ flow.namespace }}"
+    profiles: |
+      ppt:
+        outputs:
+          dev:
+            type: postgres
+            host: "{{ kv('POSTGRES_HOST') }}"
+            user: "{{ kv('POSTGRES_USER') }}"
+            password: "{{ kv('POSTGRES_PWD') }}"
+            port: {{ kv('POSTGRES_PORT') }}
+            dbname: "{{ kv('POSTGRES_DB_NAME') }}"
+            schema: public
+            threads: 8
+            connect_timeout: 10
+            priority: interactive
+        target: dev
+    description: |
+      Note that you need to adjust the models/staging/schema.yml file to match your database and schema.
+      ```yaml
+      sources:
+        - name: staging
+          database: postgres-ppt
+          schema: public
+      ```

@@ -16,7 +16,7 @@ inputs:
 
 variables:
   # ticker_history_file: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
-  table: "{{outputs.for_each_ticker.vars.ticker}}"
+  table: "public.ticker_{{outputs.for_each_ticker.vars.ticker | replace({'.': '_', '-': '_', ':': '_'})}}"
 
 
 tasks:
@@ -82,6 +82,15 @@ tasks:
       MERGE INTO public.all_tickers_prices AS M
       USING {{render(vars.table)}} AS T
       ON M.unique_row_id = T.unique_row_id
+      WHEN MATCHED THEN
+        UPDATE SET
+          open = T.open,
+          high = T.high,
+          low = T.low,
+          close = T.close,
+          volume = T.volume,
+          dividends = T.dividends,
+          stock_splits = T.stock_splits
       WHEN NOT MATCHED THEN
         INSERT (
           unique_row_id,
@@ -108,6 +117,11 @@ tasks:
           T.stock_splits
         );
   
+  - id: drop_single_ticker_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      DROP TABLE IF EXISTS {{render(vars.table)}};
+
   - id: purge_files
     type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
     description: To avoid cluttering your storage, we will remove the downloaded files

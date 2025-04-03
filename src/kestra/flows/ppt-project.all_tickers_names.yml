@@ -22,6 +22,12 @@ inputs:
   - id: reload_portfolio
     type: BOOLEAN
     defaults: false
+  - id: first_dbt_run
+    type: BOOLEAN
+    defaults: false
+  # - id: initialize
+  #   type: BOOLEAN
+  #   defaults: false
   # - id: portfolio_file
   #   type: FILE
   # - id: tickers_list_links_file
@@ -30,9 +36,21 @@ inputs:
 
 
 tasks:
+  # - id: first_time_init
+  #   type: io.kestra.plugin.core.flow.If
+  #   condition: "{{ inputs.initialize == true }}"
+  #   then:
+  #     - id: sync
+  #       type: io.kestra.plugin.git.SyncNamespaceFiles
+  #       url: https://github.com/mananyev/portfolio-performance-tracking
+  #       branch: local/kestra
+  #       namespace: "{{ flow.namespace }}"
+  #       gitDirectory: src/kestra/scripts
+  #       dryRun: false
+          
   - id: check_reload_tickers_list
     type: io.kestra.plugin.core.flow.If
-    condition: "{{inputs.reload_tickers_list == true}}"
+    condition: "{{ inputs.reload_tickers_list == true }}"
     then:
       - id: clear_tickers_list
         type: io.kestra.plugin.core.kv.Delete
@@ -48,12 +66,12 @@ tasks:
     inputs:
       test_run: "{{ inputs.test_run }}"
       backfill_all: "{{ inputs.whole_history }}"
-      backfill_since: "{{ trigger.previous ?? execution.startDate }}"
-      backfill_at: "{{ trigger.date ?? execution.startDate }}"
+      backfill_since: "{{ trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
+      backfill_at: "{{ trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
 
   - id: check_reload_portfolio
     type: io.kestra.plugin.core.flow.If
-    condition: "{{inputs.reload_portfolio == true}}"
+    condition: "{{ inputs.reload_portfolio == true }}"
     then:
       - id: clear_portfolio
         type: io.kestra.plugin.core.kv.Delete
@@ -66,6 +84,19 @@ tasks:
     type: io.kestra.plugin.core.flow.Subflow
     namespace: ppt-project
     flowId: subflow_synchronize_portfolio
+    inputs:
+      backfill_all: "{{ inputs.whole_history }}"
+      backfill_since: "{{ trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
+      backfill_at: "{{ trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
+
+  - id: run_dbt
+    description: |
+      Runs the dbt: `dbt build` by default.
+    type: io.kestra.plugin.core.flow.Subflow
+    namespace: ppt-project
+    flowId: postgres_dbt
+    inputs:
+      first_dbt_run: "{{ inputs.first_dbt_run }}"
 
 
 triggers:

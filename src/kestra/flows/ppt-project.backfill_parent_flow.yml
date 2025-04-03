@@ -14,7 +14,7 @@ inputs:
 
 
 variables:
-  # all_tickers_table: "public.all_tickers_table"
+  all_tickers_table: "public.all_tickers_table"
   all_tickers_names_data: "{{ outputs.get_all_tickers.outputFiles['all_tickers.csv'] }}"
 
 
@@ -34,7 +34,7 @@ tasks:
 
       - id: get_constituents_urls
         type: io.kestra.plugin.core.http.Download
-        uri: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/main/src/inputs/index_constituents_links.json
+        uri: "{{ kv('CONSTITUENTS_LINKS') }}"
 
       - id: get_all_tickers
         type: io.kestra.plugin.scripts.python.Commands
@@ -58,26 +58,32 @@ tasks:
         key: all_tickers
         value: "{{ outputs.get_all_tickers.vars.all_tickers }}"
 
-      # - id: all_tickers_create_table
-      #   type: io.kestra.plugin.jdbc.postgresql.Queries
-      #   sql:
-      #     CREATE TABLE IF NOT EXISTS {{ render(vars.all_tickers_table) }} (
-      #       ticker      text
-      #       , region    text
-      #       , exchange  text
-      #     );
+      - id: all_tickers_create_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql:
+          CREATE TABLE IF NOT EXISTS {{ render(vars.all_tickers_table) }} (
+            ticker      text
+            , company   text
+            , region    text
+            , sector    text
+            , industry  text
+            , exchange  text
+          );
 
-      # - id: copy_tickers_list_into_table
-      #   type: io.kestra.plugin.jdbc.postgresql.CopyIn
-      #   format: CSV
-      #   from: "{{ render(vars.all_tickers_names_data) }}"
-      #   table: "{{ render(vars.all_tickers_table) }}"
-      #   header: true
-      #   columns: [
-      #     ticker
-      #     , region
-      #     , exchange
-      #   ]
+      - id: copy_tickers_list_into_table
+        type: io.kestra.plugin.jdbc.postgresql.CopyIn
+        format: CSV
+        from: "{{ render(vars.all_tickers_names_data) }}"
+        table: "{{ render(vars.all_tickers_table) }}"
+        header: true
+        columns: [
+          ticker
+          , company
+          , region
+          , sector
+          , industry
+          , exchange
+        ]
     else:
       - id: log_found_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
@@ -108,7 +114,7 @@ tasks:
 
       - id: loop_over_tickers
         type: io.kestra.plugin.core.flow.ForEach
-        concurrencyLimit: 0
+        concurrencyLimit: 8
         values: "{{ outputs.read_tickers_list['value'] | json }}"
         tasks:
           - id: subflow_run

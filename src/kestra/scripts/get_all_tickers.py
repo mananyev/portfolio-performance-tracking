@@ -4,10 +4,12 @@ import bs4 as bs
 import json
 import io
 import os
-from modules import fuzzy_search
+from modules import ticker_search
 from kestra import Kestra
+import time
 
 
+sleep = 60
 test_run = (os.getenv('test_run') == 'true')
 
 
@@ -19,6 +21,20 @@ potential_ticker_columns = [
     'Ticker',
     'Ticker symbol',
 ]
+potential_name_columns = [
+    'security',
+    'company',
+    'company name',
+]
+# potential_sector_columns = [
+#     'gics sector',
+#     'segment',
+#     'industry',
+#     'prime standard sector',
+#     'sector',
+#     'sector[15]',
+#     'ftse industry classification benchmark sector[10]'
+# ]
 
 
 all_tickers = pd.DataFrame()
@@ -60,6 +76,8 @@ for k, v in companies_list_pages.items():
         df = pd.read_html(io.StringIO(str(table)))[0]
     
     cols = [c for c in df.columns if c in potential_ticker_columns]
+    name_cols = [c for c in df.columns if c.lower() in potential_name_columns]
+    # sector_cols = [c for c in df.columns if c.lower() in potential_sector_columns]
     
     if test_run:
         df = df.iloc[:5]
@@ -71,16 +89,33 @@ for k, v in companies_list_pages.items():
         if len(x.split(":")) == 1
         else x.split(":")[1].strip().replace(" ", '')
     )
-    output['ticker'] = tickers.map(fuzzy_search)
-    output['exchange'] = df[cols].map(
-        lambda x: x.split(":")[0] if len(x.split(":")) > 1 else None
-    )
+    if k == 'UK':
+        tickers = tickers + '.L'
+    names = df[name_cols]
+    temp = pd.concat([tickers, names], axis=1)
+    temp.columns = ['ticker', 'company']
+    search = temp.apply(ticker_search, axis=1, result_type='expand')
+    output['ticker'] = search.symbol
+    output['exchange'] = search.exchange
     output['region'] = k
+    output['company'] = search.longname
+    output['sector'] = search.sector
+    output['industry'] = search.industry
 
     all_tickers = pd.concat(
         [
             all_tickers,
-            output[['ticker', 'region', 'exchange']].set_index('ticker')
+            output.loc[
+                output['ticker'].notnull(),
+                [
+                    'ticker',
+                    'company',
+                    'region',
+                    'sector',
+                    'industry',
+                    'exchange',
+                ]
+            ].set_index('ticker')
         ],
         axis=0,
         # ignore_index=True
@@ -90,5 +125,13 @@ for k, v in companies_list_pages.items():
     if test_run:
         break
 
+    print(f"Sleep {sleep} seconds")
+    time.sleep(sleep)
+
+all_tickers = all_tickers[all_tickers.index.notnull()]
+# BOKA (Royal Boskalis Westminster N.V.) is not found in Yfinance
+# but is listed on Euronext Amsterdam
+if 'BOKA' in all_tickers.index.tolist():
+    all_tickers.drop('BOKA', inplace=True)
 Kestra.outputs({'all_tickers': sorted(all_tickers.index.tolist())})
-all_tickers[all_tickers.index.notnull()].to_csv("all_tickers.csv", index=True)
+all_tickers.to_csv("all_tickers.csv", index=True)

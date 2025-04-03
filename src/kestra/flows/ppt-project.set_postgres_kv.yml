@@ -3,6 +3,21 @@ namespace: ppt-project
 
 
 tasks:
+  # Links to indices' constituents pages and portfolio
+  # Indices' constituents JSON
+  - id: set_portfolio_link
+    type: io.kestra.plugin.core.kv.Set
+    key: PORTFOLIO_LINK
+    kvType: STRING
+    value: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/local/kestra/src/inputs/portfolio.json
+  # Portfolio JSON
+  - id: set_constituents_link
+    type: io.kestra.plugin.core.kv.Set
+    key: CONSTITUENTS_LINKS
+    kvType: STRING
+    value: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/main/src/inputs/index_constituents_links.json
+
+  # Postgres
   - id: set_postgres_host
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_HOST

@@ -2,7 +2,7 @@
     "US": {"link": "http://en.wikipedia.org/wiki/List_of_S%26P_500_companies", "ticker": "^GSPC"},
     "China": {"link": "https://en.wikipedia.org/wiki/CSI_300_Index", "ticker": "000300.SS"},
     "Latin_Amerika": {"link": "https://en.wikipedia.org/wiki/S%26P_Latin_America_40", "ticker": "^SPLAM18N"},
-    "Europe": {"link": "https://en.wikipedia.org/wiki/STOXX_Europe_50", "ticker": "^STOXX50E"},
+    "Europe": {"link": "https://en.wikipedia.org/wiki/EURO_STOXX_50", "ticker": "^STOXX50E"},
     "Germany": {"link": "https://en.wikipedia.org/wiki/DAX", "ticker": "^GDAXI"},
     "India": {"link": "https://en.wikipedia.org/wiki/NIFTY_50", "ticker": "^NSEI"},
     "UK": {"link": "https://en.wikipedia.org/wiki/FTSE_100_Index", "ticker": "^FTSE"}

@@ -3,24 +3,35 @@ namespace: ppt-project
 
 
 inputs:
-  - id: string_input
+  # - id: string_input
+  #   type: STRING
+  #   defaults: NVDA
+  - id: region
     type: STRING
-    defaults: NVDA
+  - id: tickers
+    type: STRING
   - id: backfill_all
     type: BOOLEAN
-  - id: backfill_since
+  - id: data_from
     type: STRING
-  - id: backfill_at
+  - id: data_to
     type: STRING
 
 
 variables:
-  # ticker_history_file: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
-  table: "public.ticker_{{outputs.for_each_ticker.vars.ticker | replace({'.': '_', '-': '_', ':': '_'})}}"
+  # ticker_history_file: "{{outputs.each_region.outputFiles['price_history.csv']}}"
+  # table: "public.ticker_{{outputs.each_region.vars.ticker | replace({'.': '_', '-': '_', ':': '_', '=': '_'})}}"
+  table: "{{kv('POSTGRES_SCHEMA') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
+  all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
 
 
 tasks:
-  - id: for_each_ticker
+  - id: info
+    type: io.kestra.plugin.core.log.Log
+    message: |
+      region: {{inputs.region}}
+      tickers: {{inputs.tickers}}
+  - id: each_region
     type: io.kestra.plugin.scripts.python.Commands
     namespaceFiles:
       enabled: true
@@ -28,30 +39,32 @@ tasks:
       - pip install yfinance html5lib kestra
     containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
     env:
-      ticker: "{{inputs.string_input }}"
-      backfill_since: "{{inputs.backfill_since}}"
-      backfill_at: "{{inputs.backfill_at}}"
+      # ticker: "{{inputs.string_input }}"
+      tickers: "{{inputs.tickers}}"
+      data_from: "{{inputs.data_from}}"
+      data_to: "{{inputs.data_to}}"
       backfill_all: "{{inputs.backfill_all}}"
     commands:
       - python scripts/price_history.py
     outputFiles:
       - price_history.csv
   
-  - id: create_single_ticker_table
-    type: io.kestra.plugin.jdbc.postgresql.Queries
-    sql: |
-      CREATE TABLE IF NOT EXISTS {{render(vars.table)}} (
-          unique_row_id text,
-          ticker        text,
-          date          date,
-          open          double precision,
-          high          double precision,
-          low           double precision,
-          close         double precision,
-          volume        bigint,
-          dividends     double precision,
-          stock_splits  real
-      );
+  # # staging
+  # - id: create_single_region_tickers_table
+  #   type: io.kestra.plugin.jdbc.postgresql.Queries
+  #   sql: |
+  #     CREATE TABLE IF NOT EXISTS {{render(vars.table)}} (
+  #         unique_row_id text,
+  #         ticker        text,
+  #         date          date,
+  #         open          double precision,
+  #         high          double precision,
+  #         low           double precision,
+  #         close         double precision,
+  #         volume        bigint,
+  #         dividends     double precision,
+  #         stock_splits  real
+  #     );
 
   - id: truncate_single_ticker_table
     type: io.kestra.plugin.jdbc.postgresql.Queries
@@ -61,12 +74,12 @@ tasks:
   - id: copy_in_ticker_data
     type: io.kestra.plugin.jdbc.postgresql.CopyIn
     format: CSV
-    from: "{{outputs.for_each_ticker.outputFiles['price_history.csv']}}"
+    from: "{{outputs.each_region.outputFiles['price_history.csv']}}"
     table: "{{render(vars.table)}}"
     header: true
     columns: [ticker, date, open, high, low, close, volume, dividends, stock_splits]
 
-  - id: add_unique_id_and_filename
+  - id: add_unique_id
     type: io.kestra.plugin.jdbc.postgresql.Queries
     sql: |
       UPDATE {{render(vars.table)}}
@@ -79,7 +92,7 @@ tasks:
   - id: merge_ticker_data
     type: io.kestra.plugin.jdbc.postgresql.Queries
     sql: |
-      MERGE INTO public.all_tickers_prices AS M
+      MERGE INTO {{render(vars.all_tickers_prices_table)}} AS M
       USING {{render(vars.table)}} AS T
       ON M.unique_row_id = T.unique_row_id
       WHEN MATCHED THEN
@@ -117,10 +130,10 @@ tasks:
           T.stock_splits
         );
   
-  - id: drop_single_ticker_table
-    type: io.kestra.plugin.jdbc.postgresql.Queries
-    sql: |
-      DROP TABLE IF EXISTS {{render(vars.table)}};
+  # - id: drop_single_ticker_table
+  #   type: io.kestra.plugin.jdbc.postgresql.Queries
+  #   sql: |
+  #     DROP TABLE IF EXISTS {{render(vars.table)}};
 
   - id: purge_files
     type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles

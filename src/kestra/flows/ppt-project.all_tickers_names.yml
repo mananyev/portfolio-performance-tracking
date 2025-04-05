@@ -1,8 +1,7 @@
 id: all_tickers_names
 namespace: ppt-project
 description: |
-  2do:
-    - pulls the list of tickers by market.
+  Working version for Kestra 0.21.9.
 
 
 concurrency:
@@ -13,21 +12,18 @@ inputs:
   - id: whole_history
     type: BOOLEAN
     defaults: false
-  - id: test_run
-    type: BOOLEAN
-    defaults: true
+  # - id: test_run
+  #   type: BOOLEAN
+  #   defaults: true
   - id: reload_tickers_list
     type: BOOLEAN
     defaults: false
   - id: reload_portfolio
     type: BOOLEAN
     defaults: false
-  - id: first_dbt_run
+  - id: initialize
     type: BOOLEAN
     defaults: false
-  # - id: initialize
-  #   type: BOOLEAN
-  #   defaults: false
   # - id: portfolio_file
   #   type: FILE
   # - id: tickers_list_links_file
@@ -35,74 +31,204 @@ inputs:
   #   displayName: Select a file with links to Wikipedia pages that contain lists of tickers.
 
 
+variables:
+  all_tickers_table: "{{kv('all_tickers_table')}}"
+  all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
+
+
 tasks:
-  # - id: first_time_init
-  #   type: io.kestra.plugin.core.flow.If
-  #   condition: "{{ inputs.initialize == true }}"
-  #   then:
-  #     - id: sync
-  #       type: io.kestra.plugin.git.SyncNamespaceFiles
-  #       url: https://github.com/mananyev/portfolio-performance-tracking
-  #       branch: local/kestra
-  #       namespace: "{{ flow.namespace }}"
-  #       gitDirectory: src/kestra/scripts
-  #       dryRun: false
-          
+  - id: first_time_init
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.initialize == true}}"
+    then:
+      # - id: sync_flows
+      #   type: io.kestra.plugin.git.SyncNamespaceFiles
+      #   url: https://github.com/mananyev/portfolio-performance-tracking
+      #   branch: "{{kv('BRANCH')}}"
+      #   namespace: "{{flow.namespace}}"
+      #   gitDirectory: src/kestra/flows
+      #   dryRun: false
+
+      # - id: sync_scripts
+      #   type: io.kestra.plugin.git.SyncNamespaceFiles
+      #   url: https://github.com/mananyev/portfolio-performance-tracking
+      #   branch: "{{kv('BRANCH')}}"
+      #   namespace: "{{flow.namespace}}"
+      #   gitDirectory: src/kestra/scripts
+      #   dryRun: false
+
+      - id: create_schema
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          CREATE SCHEMA IF NOT EXISTS {{kv('POSTGRES_SCHEMA')}}
+            AUTHORIZATION kestra;
+
+      - id: create_all_tickers_prices_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          CREATE TABLE IF NOT EXISTS {{render(vars.all_tickers_prices_table)}} (
+              unique_row_id   text
+              , ticker        text
+              , date          date
+              , open          double precision
+              , high          double precision
+              , low           double precision
+              , close         double precision
+              , volume        bigint
+              , dividends     double precision
+              , stock_splits  real
+          );
+
+      - id: create_all_tickers_table
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          CREATE TABLE IF NOT EXISTS {{render(vars.all_tickers_table)}} (
+              ticker      text
+              , company   text
+              , region    text
+              , sector    text
+              , industry  text
+              , exchange  text
+          );
+
   - id: check_reload_tickers_list
     type: io.kestra.plugin.core.flow.If
-    condition: "{{ inputs.reload_tickers_list == true }}"
+    condition: "{{inputs.reload_tickers_list == true}}"
     then:
-      - id: clear_tickers_list
+      - id: clear_all_tickers_list
         type: io.kestra.plugin.core.kv.Delete
         key: all_tickers
         errorOnMissing: false
 
-  - id: update_data
-    description: |
-      Historic prices in Ticker batches (with `period='max'` argument).
-    type: io.kestra.plugin.core.flow.Subflow
-    namespace: ppt-project
-    flowId: backfill_parent_flow
-    inputs:
-      test_run: "{{ inputs.test_run }}"
-      backfill_all: "{{ inputs.whole_history }}"
-      backfill_since: "{{ trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
-      backfill_at: "{{ trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
+      - id: set_all_tickers_kv
+        type: io.kestra.plugin.core.kv.Set
+        key: all_tickers
+        kvType: STRING
+        value: "[]"
 
-  - id: check_reload_portfolio
-    type: io.kestra.plugin.core.flow.If
-    condition: "{{ inputs.reload_portfolio == true }}"
-    then:
-      - id: clear_portfolio
-        type: io.kestra.plugin.core.kv.Delete
-        key: portfolio_tickers
-        errorOnMissing: false
+      - id: get_constituents_urls
+        type: io.kestra.plugin.core.http.Download
+        uri: "{{kv('CONSTITUENTS_LINKS')}}"
 
-  - id: synchronize_portfolio
-    description: |
-      Checks if tickers used in portfolio are in the data base.
-    type: io.kestra.plugin.core.flow.Subflow
-    namespace: ppt-project
-    flowId: subflow_synchronize_portfolio
-    inputs:
-      backfill_all: "{{ inputs.whole_history }}"
-      backfill_since: "{{ trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
-      backfill_at: "{{ trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS')) }}"
+      - id: split_json
+        type: io.kestra.plugin.scripts.python.Script
+        containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+        inputFiles:
+          constituents.json: "{{ outputs.get_constituents_urls.uri }}"
+        outputFiles:
+          - "constituents_links.csv"
+        script: |
+          import json
+          import pandas as pd
+          from kestra import Kestra
 
-  - id: run_dbt
-    description: |
-      Runs the dbt: `dbt build` by default.
-    type: io.kestra.plugin.core.flow.Subflow
-    namespace: ppt-project
-    flowId: postgres_dbt
-    inputs:
-      first_dbt_run: "{{ inputs.first_dbt_run }}"
+          with open("constituents.json", 'r') as file:
+              constituents_data = json.load(file)
+
+          constituents_df = pd.DataFrame(constituents_data).T
+          constituents_df.index.name = 'region'
+          constituents_df.to_csv("constituents_links.csv", index=True)
+
+      - id: read_regions_csv
+        type: io.kestra.plugin.serdes.csv.CsvToIon
+        from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
+
+      - id: loop_over_regions
+        type: io.kestra.plugin.core.flow.ForEachItem
+        items: "{{outputs.read_regions_csv.uri}}"
+        namespace: ppt-project
+        flowId: backfill_parent_flow
+        inputs:
+          region_json: "{{taskrun.items}}"
+          # test_run: "{{inputs.test_run}}"
+          backfill_all: "{{inputs.whole_history}}"
+          data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+          data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+
+    else:
+      - id: log_ticker_list_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          All tickers are already in KV Store.
+
+    finally:
+      # - id: update_data
+      #   description: |
+      #     Historic prices in Ticker batches (with `period='max'` argument).
+      #   type: io.kestra.plugin.core.flow.Subflow
+      #   namespace: ppt-project
+      #   flowId: backfill_parent_flow
+      #   inputs:
+      #     # test_run: "{{inputs.test_run}}"
+      #     backfill_all: "{{inputs.whole_history}}"
+      #     data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+      #     data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+
+      - id: check_reload_portfolio
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{inputs.reload_portfolio == true}}"
+        then:
+          - id: clear_portfolio
+            type: io.kestra.plugin.core.kv.Delete
+            key: portfolio_tickers
+            errorOnMissing: false
+
+        else:
+          - id: log_portfolio_tickets
+            type: io.kestra.plugin.core.log.Log
+            message: |
+              Portfolio tickers are already in KV Store.
+        
+        finally:
+          - id: synchronize_portfolio
+            description: |
+              Checks if tickers used in portfolio are in the data base.
+            type: io.kestra.plugin.core.flow.Subflow
+            namespace: ppt-project
+            flowId: subflow_synchronize_portfolio
+            inputs:
+              backfill_all: "{{inputs.whole_history}}"
+              data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+              data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+
+      - id: run_dbt
+        description: |
+          Runs the dbt: `dbt build` by default.
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: ppt-project
+        flowId: postgres_dbt
+        inputs:
+          first_dbt_run: "{{inputs.initialize}}"
 
 
+pluginDefaults:
+  - type: io.kestra.plugin.jdbc.postgresql
+    values:
+      url: "jdbc:postgresql://{{kv('POSTGRES_HOST')}}:{{kv('POSTGRES_PORT')}}/{{kv('POSTGRES_DB_NAME')}}"
+      username: "{{kv('POSTGRES_USER')}}"
+      password: "{{kv('POSTGRES_PWD')}}"
+
+
+# since we only need the data to be updated for up to previos working day
+# we do not need updates past Saturday (Friday data updated), i.e. Sunday
+# and on Monday (there is no Sunday updates).
+# we also want to exclude public holidays (US in this case).
 triggers:
-  - id: daily_schedule
+  - id: on_workdays
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "0 10 * * *"
+    conditions:
+      - type: io.kestra.plugin.core.condition.Not
+        conditions:
+          - type: io.kestra.plugin.core.condition.Or
+            conditions:
+              - type: io.kestra.plugin.core.condition.DayWeek
+                dayOfWeek: "MONDAY"
+              - type: io.kestra.plugin.core.condition.DayWeek
+                dayOfWeek: "SUNDAY"
+          - type: io.kestra.plugin.core.condition.PublicHoliday
+            country: US
+
     stopAfter:
       - FAILED
     disabled: false

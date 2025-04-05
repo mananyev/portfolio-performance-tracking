@@ -23,7 +23,7 @@ tasks:
       - id: sync
         type: io.kestra.plugin.git.SyncNamespaceFiles
         url: https://github.com/mananyev/portfolio-performance-tracking
-        branch: local/kestra
+        branch: "{{ kv('BRANCH') }}"
         namespace: "{{ flow.namespace }}"
         gitDirectory: src/dbt/dbt/ppt
         dryRun: false
@@ -55,7 +55,7 @@ tasks:
             password: "{{ kv('POSTGRES_PWD') }}"
             port: {{ kv('POSTGRES_PORT') }}
             dbname: "{{ kv('POSTGRES_DB_NAME') }}"
-            schema: public
+            schema: "{{ kv('POSTGRES_SCHEMA') }}"
             threads: 8
             connect_timeout: 10
             priority: interactive

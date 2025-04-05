@@ -45,8 +45,8 @@ def ticker_search(args) -> pd.DataFrame:
         q_df_ticker = pd.DataFrame(columns=merge_cols+['score',])
 
     df = pd.merge(
-        left=q_df_name,
-        right=q_df_ticker,
+        left=q_df_ticker,
+        right=q_df_name,
         on=merge_cols,
         how='left',
     ).sort_values(by=['score_y', 'score_x'], ascending=False)
@@ -59,10 +59,10 @@ def ticker_search(args) -> pd.DataFrame:
     return df[return_cols]
 
 
-def pull_history(ticker: str, start: str=None, end: str=None) -> pd.DataFrame:
+def pull_history(tickers: list, start: str=None, end: str=None) -> pd.DataFrame:
     """Pulls the history of prices and volumesfrom yfinance for a given:
     
-        - `ticker`, with data between
+        - `tickers`, with data between
         - `_start` (string 'YYYY-MM-DD'), and
         - `_end` (string 'YYYY-MM-DD') dates.
     
@@ -84,14 +84,18 @@ def pull_history(ticker: str, start: str=None, end: str=None) -> pd.DataFrame:
             raise
 
     out = pd.DataFrame()
-    out = yf.Ticker(ticker).history(**args)
+    out = yf.Tickers(tickers).history(**args)
+    # the output is multi-column data frame - we need date and ticker in index
+    out = out.unstack().unstack(level=0)
+    # do not want empty histories, and want only date in index
+    out = out.dropna(how='all').reset_index().set_index('Date')
     if not out.empty:
         out = out.loc[out.index.date < date.today()]
 
     return out
     
 
-def prepare_dataframe(data: pd.DataFrame, ticker: str) -> pd.DataFrame:
+def prepare_dataframe(data: pd.DataFrame) -> pd.DataFrame:
     """Minor adjustments to the data frame."""
 
     # assert not data.empty, print("Empty data frame!")
@@ -112,13 +116,13 @@ def prepare_dataframe(data: pd.DataFrame, ticker: str) -> pd.DataFrame:
         ]
     )
     if not data.empty:
-        out['ticker'] = ticker
+        out['ticker'] = dat['Ticker']
         out['date'] = dat['Date'].dt.date
         out['open'] = dat['Open']
         out['high'] = dat['High']
         out['low'] = dat['Low']
         out['close'] = dat['Close']
-        out['volume'] = dat['Volume']
+        out['volume'] = dat['Volume'].astype('int')
         out['dividends'] = dat['Dividends']
         out['stock_splits'] = dat['Stock Splits']    
 

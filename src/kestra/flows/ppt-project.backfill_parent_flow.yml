@@ -3,50 +3,113 @@ namespace: ppt-project
 
 
 inputs:
-  - id: test_run
-    type: BOOLEAN
+  - id: region_json
+    type: STRING
   - id: backfill_all
     type: BOOLEAN
-  - id: backfill_since
+  - id: data_from
     type: STRING
-  - id: backfill_at
+  - id: data_to
     type: STRING
 
 
 variables:
-  all_tickers_table: "public.all_tickers_table"
-  all_tickers_names_data: "{{ outputs.get_all_tickers.outputFiles['all_tickers.csv'] }}"
-
+  region: "{{outputs.extract.vars.region}}"
+  all_tickers_table: "{{kv('all_tickers_table')}}"
+  # all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
+  region_tickers_table: "{{kv('POSTGRES_SCHEMA') ~ '.' ~ render(vars.region) ~ '_tickers_table'}}"
+  region_tickers_prices_table: "{{kv('POSTGRES_SCHEMA') ~ '.' ~ render(vars.region) ~ '_tickers_prices_table'}}"
+  region_tickers_names_data: "{{outputs.get_all_region_tickers.outputFiles['all_tickers.csv']}}"
 
 tasks:
-  - id: get_all_tickers_from_KV
+  - id: ion_to_json
+    type: io.kestra.plugin.serdes.json.IonToJson
+    from: "{{inputs.region_json}}"
+
+  - id: info
+    type: io.kestra.plugin.core.log.Log
+    message: |
+      region data: {{read(outputs.ion_to_json.uri)}}
+
+  - id: extract
+    type: io.kestra.plugin.scripts.python.Script
+    containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+    beforeCommands:
+      - pip install kestra
+    env:
+      json_string: "{{read(outputs.ion_to_json.uri)}}"
+    script: |
+      import os
+      import ast
+      from kestra import Kestra
+
+      region_dict = ast.literal_eval(os.getenv('json_string'))
+      Kestra.outputs({'region': region_dict['region']})
+      Kestra.outputs({'constituents_link': region_dict['link']})
+      Kestra.outputs({'index_ticker': region_dict['ticker']})
+
+  - id: create_region_tickers_prices_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      CREATE TABLE IF NOT EXISTS {{render(vars.region_tickers_prices_table)}} (
+          unique_row_id   text
+          , ticker        text
+          , date          date
+          , open          double precision
+          , high          double precision
+          , low           double precision
+          , close         double precision
+          , volume        bigint
+          , dividends     double precision
+          , stock_splits  real
+      );
+
+  - id: create_region_tickers_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      CREATE TABLE IF NOT EXISTS {{render(vars.region_tickers_table)}} (
+          ticker      text
+          , company   text
+          , region    text
+          , sector    text
+          , industry  text
+          , exchange  text
+      );
+
+  - id: truncate_region_tickers_prices_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      TRUNCATE TABLE {{render(vars.region_tickers_prices_table)}};
+
+  - id: truncate_region_tickers_table
+    type: io.kestra.plugin.jdbc.postgresql.Queries
+    sql: |
+      TRUNCATE TABLE {{render(vars.region_tickers_table)}};
+
+  - id: get_all_region_tickers_from_KV
     type: io.kestra.plugin.core.kv.Get
-    key: all_tickers
+    key: "{{render(vars.region) ~ '_tickers'}}"
 
   - id: check_missing_KV
     type: io.kestra.plugin.core.flow.If
-    condition: "{{ outputs.get_all_tickers_from_KV | length == 0 }}"
+    condition: "{{outputs.get_all_region_tickers_from_KV | length == 0}}"
     then:
       - id: log_missing_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
         message: |
-          Did not find tickers in KV.
+          {{'Did not find tickers in KV for region:' ~ render(vars.region)}}
 
-      - id: get_constituents_urls
-        type: io.kestra.plugin.core.http.Download
-        uri: "{{ kv('CONSTITUENTS_LINKS') }}"
-
-      - id: get_all_tickers
+      - id: get_all_region_tickers
         type: io.kestra.plugin.scripts.python.Commands
         namespaceFiles:
           enabled: true
         beforeCommands:
-          - pip install yfinance beautifulsoup4 lxml kestra
+          - pip install yfinance beautifulsoup4 lxml kestra html5lib
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
-        env:
-          test_run: "{{ inputs.test_run }}"
+        # env:
+        #   test_run: "{{inputs.test_run}}"
         inputFiles:
-          data.json: "{{ outputs.get_constituents_urls.uri }}"
+          data.json: "{{read(outputs.ion_to_json.uri)}}"
         outputFiles:
           - "*.csv"
         commands:
@@ -55,26 +118,14 @@ tasks:
       - id: store_tickers_in_KV
         type: io.kestra.plugin.core.kv.Set
         kvType: JSON
-        key: all_tickers
-        value: "{{ outputs.get_all_tickers.vars.all_tickers }}"
+        key: "{{render(vars.region) ~ '_tickers'}}"
+        value: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
 
-      - id: all_tickers_create_table
-        type: io.kestra.plugin.jdbc.postgresql.Queries
-        sql:
-          CREATE TABLE IF NOT EXISTS {{ render(vars.all_tickers_table) }} (
-            ticker      text
-            , company   text
-            , region    text
-            , sector    text
-            , industry  text
-            , exchange  text
-          );
-
-      - id: copy_tickers_list_into_table
+      - id: copy_tickers_list_into_staging_table
         type: io.kestra.plugin.jdbc.postgresql.CopyIn
         format: CSV
-        from: "{{ render(vars.all_tickers_names_data) }}"
-        table: "{{ render(vars.all_tickers_table) }}"
+        from: "{{render(vars.region_tickers_names_data)}}"
+        table: "{{render(vars.region_tickers_table)}}"
         header: true
         columns: [
           ticker
@@ -84,48 +135,103 @@ tasks:
           , industry
           , exchange
         ]
-    else:
-      - id: log_found_tickers_in_KV
-        type: io.kestra.plugin.core.log.Log
-        message: |
-          Found keys in KV
-    finally:
-      - id: read_tickers_list
+
+      - id: merge_ticker_data
+        type: io.kestra.plugin.jdbc.postgresql.Queries
+        sql: |
+          MERGE INTO {{render(vars.all_tickers_table)}} AS M
+          USING {{render(vars.region_tickers_table)}} AS T
+          ON M.ticker = T.ticker
+          WHEN NOT MATCHED THEN
+            INSERT (
+              ticker
+              , company
+              , region
+              , sector
+              , industry
+              , exchange
+            )
+            VALUES (
+              T.ticker
+              , T.company
+              , T.region
+              , T.sector
+              , T.industry
+              , T.exchange
+            );
+
+      - id: read_all_tickers_list
         type: io.kestra.plugin.core.kv.Get
         key: all_tickers
 
-      - id: create_all_tickers_prices_table
-        type: io.kestra.plugin.jdbc.postgresql.Queries
-        sql: |
-          CREATE TABLE IF NOT EXISTS public.all_tickers_prices (
-              unique_row_id text,
-              ticker        text,
-              date          date,
-              open          double precision,
-              high          double precision,
-              low           double precision,
-              close         double precision,
-              volume        bigint,
-              dividends     double precision,
-              stock_splits  real
-          );
-        description: |
-          Only create table (if exists) once for using in the subsequent loop
+      - id: update_all_tickers_list
+        type: io.kestra.plugin.scripts.python.Script
+        beforeCommands:
+          - pip install kestra
+        # containerImage: python
+        env:
+          region_tickers: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
+          all_tickers: "{{outputs.read_all_tickers_list.value}}"
+        script: |
+          import os
+          import ast
+          from kestra import Kestra
 
-      - id: loop_over_tickers
-        type: io.kestra.plugin.core.flow.ForEach
-        concurrencyLimit: 8
-        values: "{{ outputs.read_tickers_list['value'] | json }}"
-        tasks:
-          - id: subflow_run
-            type: io.kestra.plugin.core.flow.Subflow
-            namespace: ppt-project
-            flowId: subflow_ticker_history
-            inputs:
-              string_input: "{{ taskrun.value }}"
-              backfill_all: "{{ inputs.backfill_all }}"
-              backfill_since: "{{ inputs.backfill_since }}"
-              backfill_at: "{{ inputs.backfill_at }}"
+          region_tickers = ast.literal_eval(os.getenv('region_tickers'))
+          all_tickers = ast.literal_eval(os.getenv('all_tickers'))
+
+          # print(f"region_tickers: {region_tickers}")
+          # print(f"all_tickers: {all_tickers}")
+
+          Kestra.outputs({'all_tickers': sorted(list(set(
+            all_tickers + region_tickers
+          )))})
+
+      - id: store_updated_all_tickers_in_KV
+        type: io.kestra.plugin.core.kv.Set
+        kvType: JSON
+        key: all_tickers
+        value: "{{ outputs.update_all_tickers_list.vars.all_tickers }}"
+        overwrite: true
+
+    else:
+      - id: log_found_region_tickers_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          Found keys in KV foi region {{render(vars.region)}}
+          {{kv('render(vars.region) ~ "_tickers"')}}
+          
+    finally:
+      - id: read_region_tickers_list
+        type: io.kestra.plugin.core.kv.Get
+        key: "{{render(vars.region) ~ '_tickers'}}"
+
+        # - id: loop_over_tickers
+        #   type: io.kestra.plugin.core.flow.ForEach
+        #   concurrencyLimit: 8
+        #   values: "{{outputs.read_tickers_list.value | json}}"
+        #   tasks:
+      - id: subflow_run
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: ppt-project
+        flowId: subflow_ticker_history
+        inputs:
+          # string_input: "{{taskrun.value}}"
+          region: "{{render(vars.region)}}"
+          tickers: "{{outputs.read_region_tickers_list.value}}"
+          backfill_all: "{{inputs.backfill_all}}"
+          data_from: "{{inputs.data_from}}"
+          data_to: "{{inputs.data_to}}"
+
+      - id: purge_files
+        type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+        description: To avoid cluttering your storage, we will remove the downloaded files
+
+
+outputs:
+  - id: tickers
+    type: ARRAY
+    value: "{{outputs.read_region_tickers_list.value}}"
 
 
 pluginDefaults:

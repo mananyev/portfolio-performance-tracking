@@ -2,20 +2,33 @@ id: set_postgres_kv
 namespace: ppt-project
 
 
+inputs:
+  - id: branch
+    type: STRING
+    defaults: local/kestra
+
+
 tasks:
+  # GitHub branch name
+  - id: set_branch
+    type: io.kestra.plugin.core.kv.Set
+    key: BRANCH
+    kvType: STRING
+    value: "{{inputs.branch}}"
+
   # Links to indices' constituents pages and portfolio
   # Indices' constituents JSON
   - id: set_portfolio_link
     type: io.kestra.plugin.core.kv.Set
     key: PORTFOLIO_LINK
     kvType: STRING
-    value: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/local/kestra/src/inputs/portfolio.json
+    value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/portfolio.json'}}"
   # Portfolio JSON
   - id: set_constituents_link
     type: io.kestra.plugin.core.kv.Set
     key: CONSTITUENTS_LINKS
     kvType: STRING
-    value: https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/main/src/inputs/index_constituents_links.json
+    value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/index_constituents_links.json'}}"
 
   # Postgres
   - id: set_postgres_host
@@ -33,6 +46,11 @@ tasks:
     key: POSTGRES_DB_NAME
     kvType: STRING
     value: postgres-ppt  # if needed, change to the values you set in docker file
+  - id: set_postgres_schema
+    type: io.kestra.plugin.core.kv.Set
+    key: POSTGRES_SCHEMA
+    kvType: STRING
+    value: ppt  # if needed, change to the values you set in docker file
   - id: set_postgres_user
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_USER
@@ -43,3 +61,22 @@ tasks:
     key: POSTGRES_PWD
     kvType: STRING
     value: k3str4  # if needed, change to the values you set in docker file
+
+  # Common tables
+  - id: set_all_tickers_table_name
+    type: io.kestra.plugin.core.kv.Set
+    key: all_tickers_table
+    kvType: STRING
+    value: "{{kv('POSTGRES_SCHEMA') ~ '.all_tickers'}}"  # you can change if you want
+  - id: set_all_tickers_prices_table_name
+    type: io.kestra.plugin.core.kv.Set
+    key: all_tickers_prices_table
+    kvType: STRING
+    value: "{{kv('POSTGRES_SCHEMA') ~ '.all_tickers_prices'}}"  # you can change if you want
+
+  # # Empty values
+  # - id: set_all_tickers_kv
+  #   type: io.kestra.plugin.core.kv.Set
+  #   key: all_tickers
+  #   kvType: STRING
+  #   value: "[]"

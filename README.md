@@ -6,6 +6,7 @@ Retail investors, in particular, informed traders, usually look up a lot of info
 This information typically includes financial and economic news, published reports, and a number of indicators.
 Gathering the required information might be time consuming and costly, and might not always be available at hand.
 This project provides a short stock market overview with a number of indicators, and allows tracking the performance of the custom portfolio.[^1]
+The data can further be used to train ML models to develop trading strategies and optimize portfolio selection.
 
 [^1]: Portfolio performance is, for example, available at [Yahoo! Finace website](https://finance.yahoo.com/about/plans/select-plan/portfolioAnalytics) only for users with a paid subscription (starting from $7.95/month for a Bronze tier).
 
@@ -72,8 +73,8 @@ The project solves a number of technical challenges:
         2. China: CSI 300
         3. Germany: DAX
         4. India: NIFTY 50
-        5. UK: FTSE 250
-        6. Europe: STOXX 600
+        5. UK: FTSE 100
+        6. Europe: Euro STOXX 50
         7. Latin America: S&P Latin America 40
 
     3. The list of stocks constituting those indices is expanded with the stocks from the custom portfolio, if they were originally missing.
@@ -83,11 +84,14 @@ The project solves a number of technical challenges:
     1. For example, `4imprint Group plc`, traded as `FOUR` at LSE [has ticker symbol `FOUR.L` on the Yahoo! Finace website](https://finance.yahoo.com/quote/FOUR.L/), while ticker symbol `FOUR` on the same web-portal [corresponds](https://finance.yahoo.com/quote/FOUR/) to `Shift4 Payments, Inc`..
     2. In this project I employ search and matching by ticker symbol and company name to extract the right data from the API.
 
-3.  The data on stock prices for the constituents of the seven selected indices exceeds 2 million rows (for the total of 1533 ticker symbols), and cannot be retreived at once with ease.
+3.  Batch processing has to be implemented differently, depending on whether the backfill or a regular update is needed:
 
-    1. In order to get historical prices and volumes of those stocks, I use batch processing, leveraging Kestra loops and subflows.
+    1. The data on stock prices for the constituents of the seven selected indices exceeds 7 million rows (full history of prices for the total of 1063 ticker symbols).
+    2.  Some stocks originate from the 60s: that's more than 20 thousand daily batches. Even restricting the data to start from 2010 would result in approximately 5 thousand daily batches.
 
-4. 
+        1. In order to be able to use this data to train ML models, I prefer having full history of prices.
+        2. In order to get historical prices and volumes of those stocks, I use region-level batches, leveraging Kestra loops and subflows, as well as KV Store and internal storage.
+        3. Regular updates are done with daily batches.
 
 
 ## Limitations
@@ -103,4 +107,4 @@ This project uses `yfinance` API, an unofficial API scraping data from the Yahoo
 The request rate is known to be limited.
 The code uses high rate of requests when getting the stock data (ticker symbol, sector, industry, etc.) for a given index: the higher the number of stocks in the index, the higher the chances that you might hit the rate limit.
 
-To avoid hitting rate limitation, consider adding smaller indices into the JSON file with links to index constituents.
+In order to avoid hitting rate limitation when getting more stocks data (e.g. by adding more indices and their constituents links), consider adding smaller indices into the JSON file with links to index constituents.

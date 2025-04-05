@@ -2,8 +2,10 @@ version: 1
 
 sources:
   - name: staging
+    # not sure how to pass Kestra KVs to this schema YAML...
+    # so, keep it the same as in the 
     database: postgres-ppt
-    schema: public
+    schema: ppt
 
     tables:
       - name: portfolio_positions

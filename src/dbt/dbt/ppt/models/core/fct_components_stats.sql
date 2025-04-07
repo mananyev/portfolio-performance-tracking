@@ -1,3 +1,8 @@
+with
+portfolio_tickers as (
+    select distinct ticker
+    from {{ ref('stg_portfolio_positions') }}
+)
 select *
-from ref('fct_tickers_stats')
-inner join (select distinct ticker from portfolio_positions) pp using (ticker)
+from {{ ref('fct_tickers_stats') }}
+    inner join portfolio_tickers using (ticker)

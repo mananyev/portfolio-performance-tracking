@@ -1,44 +1,58 @@
-# Stock Market Overview and Custom Portfolio Performance Tracking
+# Custom Portfolio Performance Tracking
 
 > DataTalksClub data-engineering-zoomcamp capstone project.
+
+
+## 1. Introduction
 
 Retail investors, in particular, informed traders, usually look up a lot of information on the Internet.
 This information typically includes financial and economic news, published reports, and a number of indicators.
 Gathering the required information might be time consuming and costly, and might not always be available at hand.
-This project provides a short stock market overview with a number of indicators, and allows tracking the performance of the custom portfolio.[^1]
-The data can further be used to train ML models to develop trading strategies and optimize portfolio selection.
+Furthermore, it is important to assess the quality of the investment decisions one makes and how they affect the portfolio (and investor's wealth).
+Standard brokers (for example, Trade Republic) offer limited scope for analysis of a custom portfolio.[^1]
+Financial portals like Yahoo! Finance, offer analysis tools and performance tracking for users with paid subscription.[^2]
 
-[^1]: Portfolio performance is, for example, available at [Yahoo! Finace website](https://finance.yahoo.com/about/plans/select-plan/portfolioAnalytics) only for users with a paid subscription (starting from $7.95/month for a Bronze tier).
+This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates it's risk-return profile (and compares it to the profile of its individual components and of the other assets in the market), tracks its performance over time, and allows building various types of analysis on top.
+The final dashboard is shown on the screenshot below.
 
+![Dashboard in Grafana](./assets/screenshots/grafana_dashboard.png)
 
-## Description
+> P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
-This project is used to create data infrastructure and a dashboard showing the outlook of the stock market and the performance of the selected portfolio.
+[^1]: Trade Republic shows the statistics and the dynamics for returns/gains of the performance portfolio you currently have, not for the portfolio you want to check/compare.
 
-Yahoo! Finance data from `yfinance` Python API is used.
-
-### Branches
-
-* `main` for GCP/GCS/BigQuery with orchestration in Kestra.
-* `local/kestra` for local Postgres with orchestration in Kestra.
-
-### Installation Guide
-
-TBA
+[^2]: Risk Analysis and Portfolio Performance are, for example, available at [Yahoo! Finace website](https://finance.yahoo.com/about/plans/select-plan/portfolioAnalytics) only for users with a paid subscription (starting from $7.95/month for a Bronze tier).
 
 
-## Tools
+## 2. Project Description
+### 2.1 Branches
+
+* `main` -- for GCP/GCS/BigQuery with orchestration in Kestra.
+* **`local/kestra`** (*current*) -- for local Postgres with orchestration in Kestra.
+
+### 2.2 Installation Guide
+
+For local installation you need:
+
+- some kind of a terminal,
+- Docker.
+
+If you are running this on a Linux machine, both of the requirements are satisfied.
+For Windows, install both, if needed.
+
+Please, read the complete [installation guide here](./installation.md).
+
+### 2.3 Tools
 
 For the local setup, the following tools have been used
 
 1. Orchestration is done using [Kestra](https://kestra.io/).
 2. Data is loaded via [Python](https://www.python.org/) scripts using popular libraries such as: `requests`, `beautifulsoup`, `pandas`. Financial data is retreived using `yfinance` library.
 3. Data is stored in a local [PostgreSQL Relational Database](https://www.postgresql.org/).
-4. Analytical transformations are managed with [`dbt Labs`](https://www.getdbt.com/).
+4. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
 5. Local dashboard was made using [Grafana](https://grafana.com/).
 
-
-## Data Lineage
+### 2.4 Data Lineage
 
 1.  Two input files (stored in the GitHub repository for this project):
 
@@ -55,12 +69,18 @@ For the local setup, the following tools have been used
 
 2. Stock information (company name and suggested ticker) is extracted from the links to Wikipedia pages.
 3. Corrected ticker information (ticker symbol, sector, industry, exchange) is searched through `yfinance` API.
-4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded (`backfill` option allows loading the whole history of prices).
+4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded on a daily basis.
+   
+   1. `backfill` option allows loading the whole history of prices at once.
+
 5. Data is transformed using `dbt` and loaded to Postgres.
+
+   1. Including risk-return profile of the whole portfolio, its individual components, and other tickers.
+
 6. Market overview and portfolio performance are visualized in a Grafana dashboard.
 
 
-## Challenges
+## 3. Challenges
 
 The project solves a number of technical challenges:
 
@@ -93,25 +113,49 @@ The project solves a number of technical challenges:
         2. In order to get historical prices and volumes of those stocks, I use region-level batches, leveraging Kestra loops and subflows, as well as KV Store and internal storage.
         3. Regular updates are done with daily batches.
 
-4. Portfolio risk-return analysis (mean return and variance of the portfolio, calculated from its components) calculation using SQL.
+4. Portfolio risk-return analysis (mean daily return of the portfolio and its variance, calculated from its components) calculation using SQL.
+   ![image](./assets/screenshots/risk_return.png)
 
 
-## Limitations
+## 4. Limitations
 
-### Stocks Selection and Portfolio Data
+### 4.1 Stocks Selection and Portfolio Data
 
 Current pipeline implementation is limited to the stocks constituting major indices of the selected countries/regions.
 Portfolio file is only stored in GitHub repo and can only be changed after some code tweaking (or replacing the file in the repo).
 
-### Portfolio Limitations
+### 4.2 Portfolio Limitations
 
 Current implementation for portfolio performance only allows for buy and sell positions and only for volume given in shares (not in monetary terms).
 Technically, short positions are allowed with the "sell" position type.
 
-### `yfinance` Rate Limitation
+### 4.3 `yfinance` Rate Limitation
 
 This project uses `yfinance` API, an unofficial API scraping data from the Yahoo! Finance page.
 The request rate is known to be limited.
 The code uses high rate of requests when getting the stock data (ticker symbol, sector, industry, etc.) for a given index: the higher the number of stocks in the index, the higher the chances that you might hit the rate limit.
 
 In order to avoid hitting rate limitation when getting more stocks data (e.g. by adding more indices and their constituents links), consider adding smaller indices into the JSON file with links to index constituents.
+
+### 4.4 Analysis Limitation
+
+Currently, only the following graphs are included into the dashboard:
+
+* (current) portfolio composition,
+* net gain and cumulative returns dynamics,
+* risk-return profile of the portfolio, its components, and all the tickers in the database.
+
+
+## 5. Future Steps
+
+The main purpose for this data pipeline is to be used for training ML models to optimize portfolio selection.
+The data base with returns and individual ticker statistics is created with this project, alongside with a dashboard showing key metrics.
+Major improvement steps, as I envision them, include:
+
+1. An easy way to load a custom portfolio
+
+   1. assuming an ML model producing an output with tickers (components), their transaction date, and traded volume (similar to the [example portfolio](./src/inputs/portfolio.json)), this pipeline needs to read the file from a local/cloud storage.
+
+2. A benchmark functionality:
+
+   1. Country/region indices, custom portfolios, or backtesting portfolios suggested by an ML model.

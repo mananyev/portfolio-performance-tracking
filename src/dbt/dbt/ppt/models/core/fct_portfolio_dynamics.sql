@@ -10,8 +10,8 @@ portfolio_dynamics as (
     group by date
 )
 , final as (
-    select *, sum(ln(potfolio_return + 1)) over (order by date) as cumulative_log_return
-    from ppt.fct_portfolio_dynamics 
+    select *, sum(ln(portfolio_return + 1)) over (order by date) as cumulative_log_return
+    from portfolio_dynamics 
 )
 select
     date
@@ -20,5 +20,5 @@ select
     , net_value
     , portfolio_return
     , exp(cumulative_log_return) - 1 as cumulative_return
-from portfolio_dynamics
+from final
 order by date

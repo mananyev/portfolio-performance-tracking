@@ -9,6 +9,16 @@ portfolio_dynamics as (
     from {{ ref('stg_portfolio_returns') }}
     group by date
 )
-select *
+, final as (
+    select *, sum(ln(potfolio_return + 1)) over (order by date) as cumulative_log_return
+    from ppt.fct_portfolio_dynamics 
+)
+select
+    date
+    , total_cost
+    , total_value
+    , net_value
+    , portfolio_return
+    , exp(cumulative_log_return) - 1 as cumulative_return
 from portfolio_dynamics
 order by date

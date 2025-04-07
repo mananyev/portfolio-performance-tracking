@@ -27,7 +27,10 @@ portfolio_mean_std as (
 -- divided by two because of double number of lines in `expanded`
 -- due to correlation matrix table, e.g.:
 -- corr(AAPL, NVDA) = corr(NVDA, AAPL)
+-- portfolio's retrun = sum_i k_i*r_i,
+-- where k_i is the share of item i and r_i is its return
+-- var(portfolio) = k_i^2 * v_i + 2*k_i*k_j*cov_ij, i != j
 select
-    0.5 * sum(mean) as portfolio_mean_return
-    , 0.5 * sum(sigma2_1 + cov) as portfolio_standard_deviation
+    0.5 * sum(mean) as mean
+    , sqrt(0.5*sum(sigma2_1) + sum(cov)) as std
 from expanded

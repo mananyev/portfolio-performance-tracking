@@ -93,6 +93,8 @@ The project solves a number of technical challenges:
         2. In order to get historical prices and volumes of those stocks, I use region-level batches, leveraging Kestra loops and subflows, as well as KV Store and internal storage.
         3. Regular updates are done with daily batches.
 
+4. Portfolio risk-return analysis (mean return and variance of the portfolio, calculated from its components) calculation using SQL.
+
 
 ## Limitations
 
@@ -100,6 +102,11 @@ The project solves a number of technical challenges:
 
 Current pipeline implementation is limited to the stocks constituting major indices of the selected countries/regions.
 Portfolio file is only stored in GitHub repo and can only be changed after some code tweaking (or replacing the file in the repo).
+
+### Portfolio Limitations
+
+Current implementation for portfolio performance only allows for buy and sell positions and only for volume given in shares (not in monetary terms).
+Technically, short positions are allowed with the "sell" position type.
 
 ### `yfinance` Rate Limitation
 

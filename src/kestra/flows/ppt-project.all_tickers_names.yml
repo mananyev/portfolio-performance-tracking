@@ -41,21 +41,13 @@ tasks:
     type: io.kestra.plugin.core.flow.If
     condition: "{{inputs.initialize == true}}"
     then:
-      # - id: sync_flows
-      #   type: io.kestra.plugin.git.SyncNamespaceFiles
-      #   url: https://github.com/mananyev/portfolio-performance-tracking
-      #   branch: "{{kv('BRANCH')}}"
-      #   namespace: "{{flow.namespace}}"
-      #   gitDirectory: src/kestra/flows
-      #   dryRun: false
-
-      # - id: sync_scripts
-      #   type: io.kestra.plugin.git.SyncNamespaceFiles
-      #   url: https://github.com/mananyev/portfolio-performance-tracking
-      #   branch: "{{kv('BRANCH')}}"
-      #   namespace: "{{flow.namespace}}"
-      #   gitDirectory: src/kestra/scripts
-      #   dryRun: false
+      - id: sync_scripts
+        type: io.kestra.plugin.git.SyncNamespaceFiles
+        url: https://github.com/mananyev/portfolio-performance-tracking
+        branch: "{{kv('BRANCH')}}"
+        namespace: "{{flow.namespace}}"
+        gitDirectory: src/kestra/scripts
+        dryRun: false
 
       - id: create_schema
         type: io.kestra.plugin.jdbc.postgresql.Queries

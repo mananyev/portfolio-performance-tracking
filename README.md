@@ -52,6 +52,8 @@ For the local setup, the following tools have been used
 4. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
 5. Local dashboard was made using [Grafana](https://grafana.com/).
 
+![Pipeline](./assets/screenshots/pipeline_local_kestra.png)
+
 ### 2.4 Data Lineage
 
 1.  Two input files (stored in the GitHub repository for this project):
@@ -64,7 +66,7 @@ For the local setup, the following tools have been used
 
             1. `type`: `buy` or `sell`,
             2. `timestamp`: when transaction happened,
-            3. `volume`: number of shares,`        "
+            3. `volume`: number of shares,
             4. `volume_type`: currently only supports `shares` (not monetary amount).
 
 2. Stock information (company name and suggested ticker) is extracted from the links to Wikipedia pages.

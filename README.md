@@ -12,7 +12,7 @@ Furthermore, it is important to assess the quality of the investment decisions o
 Standard brokers (for example, Trade Republic) offer limited scope for analysis of a custom portfolio.[^1]
 Financial portals like Yahoo! Finance, offer analysis tools and performance tracking for users with paid subscription.[^2]
 
-This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates it's risk-return profile (and compares it to the profile of its individual components and of the other assets in the market), tracks its performance over time, and allows building various types of analysis on top.
+This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates its risk-return profile (and compares it to the profile of its individual components and of the other assets in the market), tracks its performance over time, and allows building various types of analysis on top.
 The final dashboard is shown on the screenshot below.
 
 ![Dashboard in Grafana](./assets/screenshots/grafana_dashboard.png)
@@ -37,7 +37,7 @@ For local installation you need:
 - some kind of a terminal,
 - Docker.
 
-If you are running this on a Linux machine, both of the requirements are satisfied.
+If you are running this on a Linux machine, you probably already have both of these requirements satisfied.
 For Windows, install both, if needed.
 
 Please, read the complete [installation guide here](./installation.md).
@@ -71,15 +71,15 @@ For the local setup, the following tools have been used
 
 2. Stock information (company name and suggested ticker) is extracted from the links to Wikipedia pages.
 3. Corrected ticker information (ticker symbol, sector, industry, exchange) is searched through `yfinance` API.
-4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded on a daily basis.
+4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded on a daily basis and stored in Postgres.
    
-   1. `backfill` option allows loading the whole history of prices at once.
+   1. `whole_history` option allows backfilling the whole history of prices at once.
 
-5. Data is transformed using `dbt` and loaded to Postgres.
+5. Data is transformed using `dbt` and loaded back to Postgres.
 
-   1. Including risk-return profile of the whole portfolio, its individual components, and other tickers.
+   1. Includes the calculation of the risk-return profile for the whole portfolio, its individual components, and other tickers.
 
-6. Market overview and portfolio performance are visualized in a Grafana dashboard.
+6. Risk-return profile and portfolio's composition and performance are visualized in a Grafana dashboard.
 
 
 ## 3. Challenges
@@ -108,7 +108,7 @@ The project solves a number of technical challenges:
 
 3.  Batch processing has to be implemented differently, depending on whether the backfill or a regular update is needed:
 
-    1. The data on stock prices for the constituents of the seven selected indices exceeds 7 million rows (full history of prices for the total of 1063 ticker symbols).
+    1. The data on stock prices for the constituents of the seven selected indices exceeds 7 million rows (full history of prices for more than a thousand ticker symbols).
     2.  Some stocks originate from the 60s: that's more than 20 thousand daily batches. Even restricting the data to start from 2010 would result in approximately 5 thousand daily batches.
 
         1. In order to be able to use this data to train ML models, I prefer having full history of prices.
@@ -149,9 +149,9 @@ Currently, only the following graphs are included into the dashboard:
 
 ### 4.5 Resource Requirements Limitation
 
-I tried running this project locally on a standard `e2-medium` VM (2 vCPU, 1 core, 4 GB memory) with a 10 GB drive, and the initial backfill execution (most important one) failed.
+I tried running this project locally on a standard `e2-medium` VM (2 vCPU, 1 core, 4 GB memory) with a 10 GB drive, and the initial backfill execution (most important one) failed due to memory issues.
 
-After that I ran the same local setup on a `e2-standard-4` VM (4 vCPUs, 16 GB Memory) with extra disk space (20 GB total) and it failed because of `host.docker.internal` connection problem.
+Running the same local setup on a `e2-standard-4` VM (4 vCPUs, 16 GB Memory) with extra disk space (20 GB total) went well until it failed because of the failure to connect to `host.docker.internal` (problem not solved yet).
 
 Running from the scratch on a local Windows machine goes with no issues.
 

@@ -184,7 +184,7 @@ Grafana is available at [localhost:3000](http://localhost:3000).
          select
             date
             , net_value
-         from fct_portfolio_dynamics;
+         from ppt.fct_portfolio_dynamics;
          ```
          </details>
 

@@ -1,8 +1,10 @@
 # Installation Guide
 
-> For the local implementation of the data pipeline with orchestration in Kestra.
+> For the implementation of the data pipeline in Google Cloud Platform (GCP) with orchestration in Kestra.
 
 ## 1. Prerequisites
+
+> You can follow [this video by Alexey from DataTalksClub](https://youtu.be/ae-CV2KfoN0?si=rVlCuFzk5AkfHLz_) to setup a VM with all the required credentials.
 
 1. Make sure you have Docker and `docker-compose` installed on your machine.
 
@@ -10,12 +12,15 @@
    >
    > ```sudo apt-get install --upgrade docker docker-compose```
    > 
-   > If you are using Windows, you need to install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+   > Test docker with
+   > 
+   > ```docker run hello-world```
+   >
+   > If you are having a "permission denied error", follow [these steps](https://stackoverflow.com/a/48957722).
 
-2. Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra), and 
-3. switch to the `local/kestra` branch.
+2. Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/main), and navigate to the cloned repository folder (e.g. `cd ~/portfolio-performance-tracking/`).
 
-> **Important:** make sure you are switched to the `local/kestra` branch.
+> **Important:** make sure you are switched to the `main` branch.
 
 
 ## 2. Using `setup.sh`
@@ -24,16 +29,13 @@ To initialize the project and start the initial backfill of the data, simply run
 
 ```sh setup.sh```
 
-That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and watch the execution.
-Grafana is available at [localhost:3000](http://localhost:3000).
+That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and watch the execution (make sure to forward port 8080).
 
 
 ## 3. Manual Steps
 
 1. navigate to Kestra [docker folder](./src/kestra/docker/).
-2. run `docker-compose up -d` to start Kestra (its UI should be available at [localhost:8080](http://localhost:8080)).
-
-   1. you can access the Postgres data base via PGAdmin (available at [localhost:8088](http://localhost:8088)) or via any other database tool.
+2. run `docker-compose up -d` to start Kestra (its UI should be available at [localhost:8080](http://localhost:8080) if you forward port 8080).
 
 3. You can now either go to [Kestra UI](http://localhost:8080) and load the flows or you can execute the following commands:
    

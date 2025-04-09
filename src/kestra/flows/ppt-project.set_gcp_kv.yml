@@ -5,7 +5,7 @@ namespace: ppt-project
 inputs:
   - id: branch
     type: STRING
-    defaults: local/kestra
+    defaults: main
 
 
 tasks:
@@ -30,53 +30,39 @@ tasks:
     kvType: STRING
     value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/index_constituents_links.json'}}"
 
-  # Postgres
-  - id: set_postgres_host
+  # GCP - make sure you adjust these values!
+  - id: gcp_project_id
     type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_HOST
+    key: GCP_PROJECT_ID
     kvType: STRING
-    value: host.docker.internal  # do not change
-  - id: set_postgres_port
+    value: peaceful-tome-448411-p7
+
+  - id: gcp_location
     type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_PORT
-    kvType: NUMBER
-    value: 5432  # if needed, change to the values you set in the docker-compose file
-  - id: set_postgres_db_name
-    type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_DB_NAME
+    key: GCP_LOCATION
     kvType: STRING
-    value: postgres-ppt  # if needed, change to the values you set in the docker-compose file
-  - id: set_postgres_schema
+    value: europe-west3
+
+  - id: gcp_bucket_name
     type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_SCHEMA
+    key: GCP_BUCKET_NAME
     kvType: STRING
-    value: ppt  # if needed, change to the values you set in the docker-compose file
-  - id: set_postgres_user
+    value: ppt-project-mananyev # make sure it's globally unique!
+
+  - id: gcp_dataset
     type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_USER
+    key: GCP_DATASET
     kvType: STRING
-    value: kestra  # if needed, change to the values you set in the docker-compose file
-  - id: set_postgres_password
-    type: io.kestra.plugin.core.kv.Set
-    key: POSTGRES_PWD
-    kvType: STRING
-    value: k3str4  # if needed, change to the values you set in the docker-compose file
+    value: ppt-project
 
   # Common tables
   - id: set_all_tickers_table_name
     type: io.kestra.plugin.core.kv.Set
     key: all_tickers_table
     kvType: STRING
-    value: "{{kv('POSTGRES_SCHEMA') ~ '.all_tickers'}}"  # you can change if you want
+    value: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.all_tickers"  # you can change if you want
   - id: set_all_tickers_prices_table_name
     type: io.kestra.plugin.core.kv.Set
     key: all_tickers_prices_table
     kvType: STRING
-    value: "{{kv('POSTGRES_SCHEMA') ~ '.all_tickers_prices'}}"  # you can change if you want
-
-  # # Empty values
-  # - id: set_all_tickers_kv
-  #   type: io.kestra.plugin.core.kv.Set
-  #   key: all_tickers
-  #   kvType: STRING
-  #   value: "[]"
+    value: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.all_tickers_prices"  # you can change if you want

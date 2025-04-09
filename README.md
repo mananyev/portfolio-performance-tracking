@@ -15,7 +15,7 @@ Financial portals like Yahoo! Finance, offer analysis tools and performance trac
 This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates its risk-return profile (and compares it to the profile of its individual components and of the other assets in the market), tracks its performance over time, and allows building various types of analysis on top.
 The final dashboard is shown on the screenshot below.
 
-![Dashboard in Grafana](./assets/screenshots/grafana_dashboard.png)
+![Dashboard in Looker](./assets/screenshots/grafana_dashboard.png)
 
 > P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
@@ -27,32 +27,34 @@ The final dashboard is shown on the screenshot below.
 ## 2. Project Description
 ### 2.1 Branches
 
-* `main` -- for GCP/GCS/BigQuery with orchestration in Kestra.
-* **`local/kestra`** (*current*) -- for local Postgres with orchestration in Kestra.
+* **`main`** (*current*) -- for GCP/GCS/BigQuery with orchestration in Kestra.
+* `local/kestra` -- for local Postgres with orchestration in Kestra.
 
 ### 2.2 Installation Guide
 
-For local installation you need:
+For installation on GCP you need:
 
-- some kind of a terminal,
-- Docker.
-
-If you are running this on a Linux machine, you probably already have both of these requirements satisfied.
-For Windows, install both, if needed.
+- a GCP project,
+- a VM instance created in that project,
+- a service account with admin roles for Storage and BigQuery[^admin], and
+- a credentials `.json` file for that service account.
 
 Please, read the complete [installation guide here](./installation.md).
+
+[^admin]: Storage Admin and BigQuery admin might have too broad permissions but we used it during the course. I recommend using the same roles when running a replication of this project.
 
 ### 2.3 Tools
 
 For the local setup, the following tools have been used
 
-1. Orchestration is done using [Kestra](https://kestra.io/).
-2. Data is loaded via [Python](https://www.python.org/) scripts using popular libraries such as: `requests`, `beautifulsoup`, `pandas`. Financial data is retreived using `yfinance` library.
-3. Data is stored in a local [PostgreSQL Relational Database](https://www.postgresql.org/).
-4. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
-5. Local dashboard was made using [Grafana](https://grafana.com/).
+1. Could storage infrastructure is implemented using Infrastructure-as-Code (IaC) with [Terraform](https://www.terraform.io/).
+2. Orchestration is done using [Kestra](https://kestra.io/).
+3. Data is loaded via [Python](https://www.python.org/) scripts using popular libraries such as: `requests`, `beautifulsoup`, `pandas`. Financial data is retreived using `yfinance` library.
+4. Data is stored in a [GCS](https://cloud.google.com/storage) bucket and loaded to [BigQuery](https://cloud.google.com/bigquery).
+5. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
+6. Dashboard in [Looker](https://cloud.google.com/looker-bi).
 
-![Pipeline](./assets/screenshots/pipeline_local_kestra.png)
+![Pipeline](./assets/screenshots/pipeline_gcp_kestra.png)
 
 ### 2.4 Data Lineage
 
@@ -71,15 +73,15 @@ For the local setup, the following tools have been used
 
 2. Stock information (company name and suggested ticker) is extracted from the links to Wikipedia pages.
 3. Corrected ticker information (ticker symbol, sector, industry, exchange) is searched through `yfinance` API.
-4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded on a daily basis and stored in Postgres.
+4. Tickers' price (as well as volumes, dividends, and stock splits) histories for the stocks from the indices and from the portfolio are loaded on a daily basis to GCS and stored in Bigquery.
    
    1. `whole_history` option allows backfilling the whole history of prices at once.
 
-5. Data is transformed using `dbt` and loaded back to Postgres.
+5. Data is transformed using `dbt` and loaded back to BigQuery.
 
    1. Includes the calculation of the risk-return profile for the whole portfolio, its individual components, and other tickers.
 
-6. Risk-return profile and portfolio's composition and performance are visualized in a Grafana dashboard.
+6. Risk-return profile and portfolio's composition and performance are visualized in a Looker dashboard.
 
 
 ## 3. Challenges
@@ -151,9 +153,7 @@ Currently, only the following graphs are included into the dashboard:
 
 I tried running this project locally on a standard `e2-medium` VM (2 vCPU, 1 core, 4 GB memory) with a 10 GB drive, and the initial backfill execution (most important one) failed due to memory issues.
 
-Running the same local setup on a `e2-standard-4` VM (4 vCPUs, 16 GB Memory) with extra disk space (20 GB total) went well until it failed because of the failure to connect to `host.docker.internal` (problem not solved yet).
-
-Running from the scratch on a local Windows machine goes with no issues.
+Running the same local setup on a `e2-standard-4` VM (4 vCPUs, 16 GB Memory) with extra disk space (20 GB total) went with no issues.
 
 
 ## 5. Future Steps

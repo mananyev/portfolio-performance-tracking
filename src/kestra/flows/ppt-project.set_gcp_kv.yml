@@ -60,9 +60,9 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: all_tickers_table
     kvType: STRING
-    value: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.all_tickers"  # you can change if you want
+    value: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.all_tickers'}}"  # you can change if you want
   - id: set_all_tickers_prices_table_name
     type: io.kestra.plugin.core.kv.Set
     key: all_tickers_prices_table
     kvType: STRING
-    value: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.all_tickers_prices"  # you can change if you want
+    value: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.all_tickers_prices'}}"  # you can change if you want

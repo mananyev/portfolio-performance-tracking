@@ -124,55 +124,55 @@ tasks:
         from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
         to: "gs://{{kv('GCP_BUCKET_NAME')}}/index_constituents_and_links.csv"
 
-#       - id: read_regions_csv
-#         type: io.kestra.plugin.serdes.csv.CsvToIon
-#         from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
+      - id: read_regions_csv
+        type: io.kestra.plugin.serdes.csv.CsvToIon
+        from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
 
-#       - id: loop_over_regions
-#         type: io.kestra.plugin.core.flow.ForEachItem
-#         items: "{{outputs.read_regions_csv.uri}}"
-#         namespace: ppt-project
-#         flowId: backfill_parent_flow
-#         inputs:
-#           region_json: "{{taskrun.items}}"
-#           # test_run: "{{inputs.test_run}}"
-#           backfill_all: "{{inputs.whole_history}}"
-#           data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-#           data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+      - id: loop_over_regions
+        type: io.kestra.plugin.core.flow.ForEachItem
+        items: "{{outputs.read_regions_csv.uri}}"
+        namespace: ppt-project
+        flowId: backfill_parent_flow
+        inputs:
+          region_json: "{{taskrun.items}}"
+          # test_run: "{{inputs.test_run}}"
+          backfill_all: "{{inputs.whole_history}}"
+          data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+          data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
 
-#     else:
-#       - id: log_ticker_list_in_KV
-#         type: io.kestra.plugin.core.log.Log
-#         message: |
-#           All tickers are already in KV Store.
+    else:
+      - id: log_ticker_list_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          All tickers are already in KV Store.
 
-#     finally:
-#       # - id: update_data
-#       #   description: |
-#       #     Historic prices in Ticker batches (with `period='max'` argument).
-#       #   type: io.kestra.plugin.core.flow.Subflow
-#       #   namespace: ppt-project
-#       #   flowId: backfill_parent_flow
-#       #   inputs:
-#       #     # test_run: "{{inputs.test_run}}"
-#       #     backfill_all: "{{inputs.whole_history}}"
-#       #     data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-#       #     data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+    finally:
+      # - id: update_data
+      #   description: |
+      #     Historic prices in Ticker batches (with `period='max'` argument).
+      #   type: io.kestra.plugin.core.flow.Subflow
+      #   namespace: ppt-project
+      #   flowId: backfill_parent_flow
+      #   inputs:
+      #     # test_run: "{{inputs.test_run}}"
+      #     backfill_all: "{{inputs.whole_history}}"
+      #     data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+      #     data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
 
-#       - id: check_reload_portfolio
-#         type: io.kestra.plugin.core.flow.If
-#         condition: "{{inputs.reload_portfolio == true}}"
-#         then:
-#           - id: clear_portfolio
-#             type: io.kestra.plugin.core.kv.Delete
-#             key: portfolio_tickers
-#             errorOnMissing: false
+      - id: check_reload_portfolio
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{inputs.reload_portfolio == true}}"
+        then:
+          - id: clear_portfolio
+            type: io.kestra.plugin.core.kv.Delete
+            key: portfolio_tickers
+            errorOnMissing: false
 
-#         else:
-#           - id: log_portfolio_tickets
-#             type: io.kestra.plugin.core.log.Log
-#             message: |
-#               Portfolio tickers are already in KV Store.
+        else:
+          - id: log_portfolio_tickets
+            type: io.kestra.plugin.core.log.Log
+            message: |
+              Portfolio tickers are already in KV Store.
         
 #         finally:
 #           - id: synchronize_portfolio
@@ -199,11 +199,13 @@ tasks:
 #         type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
 #         description: To avoid cluttering your storage, we will remove the downloaded files
 
-# pluginDefaults:
-#   - type: io.kestra.plugin.gcp
-#     values:
-#       serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
-#       bucket: "{{kv('GCP_BUCKET_NAME')}}"
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"
 
 
 # since we only need the data to be updated for up to previos working day

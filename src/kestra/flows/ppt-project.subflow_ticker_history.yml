@@ -21,8 +21,10 @@ inputs:
 variables:
   # ticker_history_file: "{{outputs.each_region.outputFiles['price_history.csv']}}"
   # table: "public.ticker_{{outputs.each_region.vars.ticker | replace({'.': '_', '-': '_', ':': '_', '=': '_'})}}"
-  table: "{{kv('POSTGRES_SCHEMA') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
+  region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ render(vars.region) ~ '_tickers_prices_table'}}"
   all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
+  region_tickers_prices_data: "{{outputs.each_region.outputFiles['price_history.csv']}}"
+  region_tickers_prices_gcs_file: "{{'gs://' ~ kv('GCP_BUCKET_NAME') ~ '/' ~ render(vars.region_tickers_prices_data)}}"
 
 
 tasks:
@@ -31,6 +33,7 @@ tasks:
     message: |
       region: {{inputs.region}}
       tickers: {{inputs.tickers}}
+
   - id: each_region
     type: io.kestra.plugin.scripts.python.Commands
     namespaceFiles:
@@ -66,34 +69,51 @@ tasks:
   #         stock_splits  real
   #     );
 
-  - id: truncate_single_ticker_table
-    type: io.kestra.plugin.jdbc.postgresql.Queries
-    sql: |
-      TRUNCATE TABLE {{render(vars.table)}};
-  
+  - id: upload_region_tickers_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{render(vars.region_tickers_prices_data)}}"
+    to: "render(vars.region_tickers_prices_gcs_file)"
+
   - id: copy_in_ticker_data
-    type: io.kestra.plugin.jdbc.postgresql.CopyIn
-    format: CSV
-    from: "{{outputs.each_region.outputFiles['price_history.csv']}}"
-    table: "{{render(vars.table)}}"
-    header: true
-    columns: [ticker, date, open, high, low, close, volume, dividends, stock_splits]
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.region_tickers_prices_table)}}_ext`
+      (
+        ticker STRING OPTIONS (description = 'The ticker symbol from Yahoo! Finance.')
+        , date DATE OPTIONS (description = 'The date to which financial data corresponds.')
+        , open NUMERIC OPTIONS (description = 'Daily Open price.')
+        , high NUMERIC OPTIONS (description = 'Daily High price.')
+        , low NUMERIC OPTIONS (description = 'Daily Low price')
+        , close NUMERIC OPTIONS (description = 'Daily Close price.')
+        , volume INTEGER OPTIONS (description = 'Daily Traded volume.')
+        , dividends NUMERIC OPTIONS (description = 'Daily Dividends paid.')
+        , stock_splits NUMERIC OPTIONS (description = 'Daily Stock splits.')
+      )
+      OPTIONS (
+        format = 'CSV',
+        uris = ['{{render(vars.region_tickers_prices_gcs_file)}}'],
+        skip_leading_rows = 1,
+        ignore_unknown_values = TRUE
+      );
 
   - id: add_unique_id
-    type: io.kestra.plugin.jdbc.postgresql.Queries
+    type: io.kestra.plugin.gcp.bigquery.Query
     sql: |
-      UPDATE {{render(vars.table)}}
-      SET 
-        unique_row_id = md5(
-          COALESCE(CAST(ticker AS text), '') ||
-          COALESCE(CAST(date AS text), '')
-        );
+      CREATE OR REPLACE TABLE `{{render(vars.region_tickers_prices_table)}}`
+      AS
+      SELECT
+        MD5(CONCAT(
+          COALESCE(CAST(ticker AS STRING), ""),
+          COALESCE(CAST(date AS STRING), "")
+        )) AS unique_row_id
+        , *
+      FROM `{{render(vars.region_tickers_prices_table)}}_ext`;
 
   - id: merge_ticker_data
-    type: io.kestra.plugin.jdbc.postgresql.Queries
+    type: io.kestra.plugin.gcp.bigquery.Query
     sql: |
       MERGE INTO {{render(vars.all_tickers_prices_table)}} AS M
-      USING {{render(vars.table)}} AS T
+      USING {{render(vars.region_tickers_prices_table)}} AS T
       ON M.unique_row_id = T.unique_row_id
       WHEN MATCHED THEN
         UPDATE SET
@@ -133,7 +153,7 @@ tasks:
   # - id: drop_single_ticker_table
   #   type: io.kestra.plugin.jdbc.postgresql.Queries
   #   sql: |
-  #     DROP TABLE IF EXISTS {{render(vars.table)}};
+  #     DROP TABLE IF EXISTS {{render(vars.region_tickers_prices_table)}};
 
   - id: purge_files
     type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
@@ -141,8 +161,9 @@ tasks:
 
 
 pluginDefaults:
-  - type: io.kestra.plugin.jdbc.postgresql
+  - type: io.kestra.plugin.gcp
     values:
-      url: "jdbc:postgresql://{{kv('POSTGRES_HOST')}}:{{kv('POSTGRES_PORT')}}/{{kv('POSTGRES_DB_NAME')}}"
-      username: "{{kv('POSTGRES_USER')}}"
-      password: "{{kv('POSTGRES_PWD')}}"
+      serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"

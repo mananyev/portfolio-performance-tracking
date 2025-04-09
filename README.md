@@ -15,7 +15,7 @@ Financial portals like Yahoo! Finance, offer analysis tools and performance trac
 This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates its risk-return profile (and compares it to the profile of its individual components and of the other assets in the market), tracks its performance over time, and allows building various types of analysis on top.
 The final dashboard is shown on the screenshot below.
 
-![Dashboard in Looker](./assets/screenshots/grafana_dashboard.png)
+![Dashboard in Looker](./assets/screenshots/looker_dashboard.png)
 
 > P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
@@ -45,7 +45,7 @@ Please, read the complete [installation guide here](./installation.md).
 
 ### 2.3 Tools
 
-For the local setup, the following tools have been used
+For the GCP setup, the following tools have been used
 
 1. Could storage infrastructure is implemented using Infrastructure-as-Code (IaC) with [Terraform](https://www.terraform.io/).
 2. Orchestration is done using [Kestra](https://kestra.io/).
@@ -54,7 +54,7 @@ For the local setup, the following tools have been used
 5. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
 6. Dashboard in [Looker](https://cloud.google.com/looker-bi).
 
-![Pipeline](./assets/screenshots/pipeline_gcp_kestra.png)
+![Pipeline](./assets/screenshots/pipeline_gcp_kestra_1.png)
 
 ### 2.4 Data Lineage
 

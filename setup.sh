@@ -1,15 +1,22 @@
 # # Linux terminal commands to install apts
 # # Docker
 # sudo apt-get install --upgrade docker docker-compose
+# # If you are running into "permission denied error":
+# # follow this advice: https://stackoverflow.com/a/48957722
+# sudo groupadd docker
+# sudo usermod -aG docker $USER
+# newgrp docker
+# # test
+# docker run hello-world
 
-echo "Setting up Kestra. It might take a while."
+echo "Setting up Kestra. This might take a while (if running for the first time)."
 echo ""
 docker-compose -f ./src/kestra/docker/docker-compose.yml up -d
 
 echo 'sleep 1 minute'
 sleep 60
 
-echo "Setting up Postgres."
+echo "Setting up Postgres. This might take a while (if running for the first time)."
 echo ""
 docker-compose -f ./src/kestra/docker/postgres/docker-compose.yml up -d
 sleep 10
@@ -51,3 +58,8 @@ curl -v -X POST \
 -F 'reload_portfolio=true' \
 -F 'initialize=true' \
 'http://localhost:8080/api/v1/executions/ppt-project/all_tickers_names'
+sleep 10
+
+echo "Setting up Grafana. This might take a while (if running for the first time)."
+echo ""
+docker-compose -f ./src/grafana/docker-compose.yaml up -d

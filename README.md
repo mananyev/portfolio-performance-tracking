@@ -147,6 +147,14 @@ Currently, only the following graphs are included into the dashboard:
 * net gain and cumulative returns dynamics,
 * risk-return profile of the portfolio, its components, and all the tickers in the database.
 
+### 4.5 Resource Requirements Limitation
+
+I tried running this project locally on a standard `e2-medium` VM (2 vCPU, 1 core, 4 GB memory) with a 10 GB drive, and the initial backfill execution (most important one) failed.
+
+After that I ran the same local setup on a `e2-standard-4` VM (4 vCPUs, 16 GB Memory) with extra disk space (20 GB total) and it failed because of `host.docker.internal` connection problem.
+
+Running from the scratch on a local Windows machine goes with no issues.
+
 
 ## 5. Future Steps
 

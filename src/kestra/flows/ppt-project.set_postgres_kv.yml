@@ -35,7 +35,7 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_HOST
     kvType: STRING
-    value: postgres-ppt  # if needed, change to the values you set in the docker-compose file
+    value: host.docker.internal  # do not change
   - id: set_postgres_port
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_PORT

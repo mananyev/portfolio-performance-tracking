@@ -35,32 +35,32 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_HOST
     kvType: STRING
-    value: host.docker.internal  # do not change
+    value: postgres-ppt  # if needed, change to the values you set in the docker-compose file
   - id: set_postgres_port
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_PORT
     kvType: NUMBER
-    value: 5432  # if needed, change to the values you set in docker file
+    value: 5432  # if needed, change to the values you set in the docker-compose file
   - id: set_postgres_db_name
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_DB_NAME
     kvType: STRING
-    value: postgres-ppt  # if needed, change to the values you set in docker file
+    value: postgres-ppt  # if needed, change to the values you set in the docker-compose file
   - id: set_postgres_schema
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_SCHEMA
     kvType: STRING
-    value: ppt  # if needed, change to the values you set in docker file
+    value: ppt  # if needed, change to the values you set in the docker-compose file
   - id: set_postgres_user
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_USER
     kvType: STRING
-    value: kestra  # if needed, change to the values you set in docker file
+    value: kestra  # if needed, change to the values you set in the docker-compose file
   - id: set_postgres_password
     type: io.kestra.plugin.core.kv.Set
     key: POSTGRES_PWD
     kvType: STRING
-    value: k3str4  # if needed, change to the values you set in docker file
+    value: k3str4  # if needed, change to the values you set in the docker-compose file
 
   # Common tables
   - id: set_all_tickers_table_name

@@ -3,8 +3,22 @@ volumes:
     driver: local
   kestra-data:
     driver: local
+  postgres-ppt-data:
+  pgadmin_data:
 
 services:
+  postgres-ppt:
+    image: postgres
+    container_name: postgres-ppt
+    environment:
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: k3str4
+      POSTGRES_DB: postgres-ppt
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-ppt-data:/var/lib/postgresql/data
+
   kestra_postgres:
     image: postgres
     volumes:
@@ -60,3 +74,16 @@ services:
     depends_on:
       kestra_postgres:
         condition: service_started
+      postgres-ppt:
+        condition: service_started
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=root
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "8088:80"

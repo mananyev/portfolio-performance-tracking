@@ -1,4 +1,4 @@
-id: set_postgres_kv
+id: set_gcp_kv
 namespace: ppt-project
 
 

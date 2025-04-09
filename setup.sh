@@ -18,8 +18,8 @@
 # echo "Setting up Kestra. This might take a while (if running for the first time)."
 # echo ""
 # docker-compose -f ./src/kestra/docker/docker-compose.yml up -d
-echo 'sleep 1 minute'
-sleep 60
+# echo 'sleep 1 minute'
+# sleep 60
 
 echo "Creating a system flow to synchronize namespace flows."
 echo ""
@@ -47,7 +47,7 @@ echo "Setting KV."
 echo ""
 curl -v -X POST \
 -F 'branch=merge/from-local/kestra' \
-'http://localhost:8080/api/v1/executions/ppt-project/set_postgres_kv'
+'http://localhost:8080/api/v1/executions/ppt-project/set_gcp_kv'
 sleep 10
 
 echo "Running the backfill."

@@ -1,4 +1,4 @@
-id: postgres_dbt
+id: bigquery_dbt
 namespace: ppt-project
 
 

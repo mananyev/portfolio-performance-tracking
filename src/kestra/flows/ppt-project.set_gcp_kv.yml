@@ -47,13 +47,13 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: GCP_BUCKET_NAME
     kvType: STRING
-    value: ppt-project-mananyev # make sure it's globally unique!
+    value: ma-portfolio-performance-tracking-bucket  # make sure it's globally unique!
 
   - id: gcp_dataset
     type: io.kestra.plugin.core.kv.Set
     key: GCP_DATASET
     kvType: STRING
-    value: ppt-project
+    value: portfolio_tracking
 
   # Common tables
   - id: set_all_tickers_table_name

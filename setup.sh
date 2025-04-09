@@ -9,17 +9,17 @@
 # # test
 # docker run hello-world
 
-echo "Setting up Kestra. This might take a while (if running for the first time)."
-echo ""
-docker-compose -f ./src/kestra/docker/docker-compose.yml up -d
+# # Terraform
+# wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+# echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+# sudo apt update && sudo apt install terraform
 
+
+# echo "Setting up Kestra. This might take a while (if running for the first time)."
+# echo ""
+# docker-compose -f ./src/kestra/docker/docker-compose.yml up -d
 echo 'sleep 1 minute'
 sleep 60
-
-echo "Setting up Postgres. This might take a while (if running for the first time)."
-echo ""
-docker-compose -f ./src/kestra/docker/postgres/docker-compose.yml up -d
-sleep 10
 
 echo "Creating a system flow to synchronize namespace flows."
 echo ""
@@ -31,7 +31,7 @@ tasks:
     - id: sync_flows
       type: io.kestra.plugin.git.SyncFlows
       url: https://github.com/mananyev/portfolio-performance-tracking
-      branch: local/kestra
+      branch: merge/from-local/kestra
       targetNamespace: ppt-project
       gitDirectory: src/kestra/flows
       dryRun: false"
@@ -46,7 +46,7 @@ sleep 10
 echo "Setting KV."
 echo ""
 curl -v -X POST \
--F 'branch=local/kestra' \
+-F 'branch=merge/from-local/kestra' \
 'http://localhost:8080/api/v1/executions/ppt-project/set_postgres_kv'
 sleep 10
 
@@ -59,7 +59,3 @@ curl -v -X POST \
 -F 'initialize=true' \
 'http://localhost:8080/api/v1/executions/ppt-project/all_tickers_names'
 sleep 10
-
-echo "Setting up Grafana. This might take a while (if running for the first time)."
-echo ""
-docker-compose -f ./src/grafana/docker-compose.yaml up -d

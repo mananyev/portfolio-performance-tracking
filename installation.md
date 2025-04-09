@@ -20,23 +20,12 @@
 
 ## 2. Using `setup.sh`
 
-<!-- You can benefit from using `make` and run everything in a single command.
-
-> If you do not have `make` installed you can run the following command in Linux terminal:
->
-> ```sudo apt-get install --upgrade make```
->
-> If you are using Windows, you can follow [this guide](https://gist.github.com/evanwill/0207876c3243bbb6863e65ec5dc3f058) to install `make` and other useful tools to your Git Bash.
-
-To initialize the project and start the initial backfill of the data, simply run
-
-```make``` -->
-
 To initialize the project and start the initial backfill of the data, simply run
 
 ```sh setup.sh```
 
 That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and watch the execution.
+Grafana is available at [localhost:3000](http://localhost:3000).
 
 
 ## 3. Manual Steps
@@ -50,7 +39,7 @@ That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and w
    
    1. Create a `system` flow that pulls the flows from the same GitHub repo:
 
-      ```
+      ```bash
       curl -X POST http://localhost:8080/api/v1/flows \
       -H "Content-Type:application/x-yaml" \
       -d "id: sync_flows_from_git
@@ -67,24 +56,149 @@ That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and w
    
    2. Execute the `system` flow:
 
-      ```
+      ```bash
       curl -X POST \
       http://localhost:8080/api/v1/executions/system/sync_flows_from_git
       ```
    
    3. Set KV for the project:
 
-      ```
+      ```bash
       curl -v -X POST \
       -F 'branch=local/kestra' 'http://localhost:8080/api/v1/executions/ppt-project/set_postgres_kv'
       ```
 
    4. Finally, run the back-fill:
 
-      ```
+      ```bash
       curl -v -X POST \
       -F 'whole_history=true' -F 'reload_tickers_list=true' -F 'reload_portfolio=true' -F 'initialize=true' \
       'http://localhost:8080/api/v1/executions/ppt-project/all_tickers_names'
       ```
+   
+   5. Set Up Grafana:
+
+      ```bash
+      docker-compose -f ./src/grafana/docker-compose.yaml up -d
+      ```
 
 That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and watch the execution.
+Grafana is available at [localhost:3000](http://localhost:3000).
+
+
+## 4. Setting Up a Grafana dashboard
+
+1. Configure data source:
+   
+   1. host URL: `host.docker.internal:5432`
+   2. database name: `postgres-ppt` (or the one you set in the docker-compose files)
+   3. Username: `kestra` (or the one you set in the docker-compose files)
+   4. Password: `k3str4` (or the one you set in the docker-compose files)
+   5. TLS/SSL Mode: `disable` (otherwise `host.docker.internal` will not work)
+
+2. Create queries and panels:
+   
+   1. Portfolio composition:
+      
+      1. query:
+         
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select ticker, position
+         from ppt.stg_portfolio_returns
+         where date = (select max(date) from ppt.stg_portfolio_returns);
+         ```
+         </details>
+
+      2. Select the graph to be a pie chart.
+   
+   2. Risk-return:
+      
+      1. Query A
+         
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select
+            ticker
+            , 100 * mean as "mean return, %"
+            , std as "standard deviation"
+         from ppt.fct_tickers_stats;
+         ```
+         </details>
+
+      2. Query B
+         
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select
+            'portfolio' as ticker
+            , 100 * mean as "mean return, %"
+            , std as "standard deviation"
+         from ppt.fct_portfolio_stats;
+         ```
+         </details>
+
+      3. Query C
+         
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select
+            ticker
+            , 100 * mean as "mean return, %"
+            , std as "standard deviation"
+         from ppt.fct_components_stats;
+         ```
+         </details>
+
+      4. override options:
+      
+         1. Override 1:
+            
+            1. Fields returned by query - Query B
+            2. Point size: 7
+            3. Point shape: square
+            4. Color scheme: single color - red
+         
+         2. Override 2:
+            
+            1. Fields returned by query - Query C
+            2. Point size: 10
+            3. Color scheme: single color - yellow
+
+   3. Net gain
+
+      1. query: 
+
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select
+            date
+            , net_value
+         from fct_portfolio_dynamics;
+         ```
+         </details>
+
+   4. Net gain
+
+      1. query: 
+
+         <details>
+         <summary>details</summary>
+
+         ```sql
+         select
+            date
+            , cumulative_return * 100
+         from ppt.fct_portfolio_dynamics;
+         ```
+         </details>

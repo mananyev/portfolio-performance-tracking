@@ -24,7 +24,7 @@ variables:
   region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
   all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
   region_tickers_prices_data: "{{outputs.each_region.outputFiles['price_history.csv']}}"
-  region_tickers_prices_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{inputs.region}}_tickers_price_history.csv"
+  region_tickers_prices_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{inputs.region}}_tickers_price_history_{{inputs.data_from | date('yyyy-MM-dd')}}_{{inputs.data_to | date('yyyy-MM-dd')}}.csv"
 
 
 tasks:

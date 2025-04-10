@@ -3,10 +3,11 @@ corrected_portfolio_positions as (
 	select
 		ticker
 		, case
-			when extract('dow' from timestamp) between 1 and 5
-			then timestamp
-			else date_trunc('week', timestamp + interval '1 week')
-		end::date as date
+			-- BigQuery: dayofweek returns 1=Sunday, 7=Saturday
+			when extract(dayofweek from timestamp) between 2 and 6
+			then cast(timestamp as date)
+			else date_trunc(date_add(cast(timestamp as date), interval 1 week), week)
+		end as date
 		, case
             when type = 'buy'
             then volume

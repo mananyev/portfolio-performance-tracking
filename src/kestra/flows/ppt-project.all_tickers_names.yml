@@ -129,6 +129,8 @@ tasks:
         from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
 
       - id: loop_over_regions
+        description: |
+          Historic prices in Ticker batches (with `period='max'` argument).
         type: io.kestra.plugin.core.flow.ForEachItem
         items: "{{outputs.read_regions_csv.uri}}"
         namespace: ppt-project
@@ -147,18 +149,6 @@ tasks:
           All tickers are already in KV Store.
 
     finally:
-      # - id: update_data
-      #   description: |
-      #     Historic prices in Ticker batches (with `period='max'` argument).
-      #   type: io.kestra.plugin.core.flow.Subflow
-      #   namespace: ppt-project
-      #   flowId: backfill_parent_flow
-      #   inputs:
-      #     # test_run: "{{inputs.test_run}}"
-      #     backfill_all: "{{inputs.whole_history}}"
-      #     data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-      #     data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-
       - id: check_reload_portfolio
         type: io.kestra.plugin.core.flow.If
         condition: "{{inputs.reload_portfolio == true}}"
@@ -168,36 +158,57 @@ tasks:
             key: portfolio_tickers
             errorOnMissing: false
 
+          - id: set_portfolio_tickers_kv
+            type: io.kestra.plugin.core.kv.Set
+            key: portfolio_tickers
+            kvType: STRING
+            value: ""
+
         else:
           - id: log_portfolio_tickets
             type: io.kestra.plugin.core.log.Log
             message: |
               Portfolio tickers are already in KV Store.
         
-#         finally:
-#           - id: synchronize_portfolio
-#             description: |
-#               Checks if tickers used in portfolio are in the data base.
-#             type: io.kestra.plugin.core.flow.Subflow
-#             namespace: ppt-project
-#             flowId: subflow_synchronize_portfolio
-#             inputs:
-#               backfill_all: "{{inputs.whole_history}}"
-#               data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-#               data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+        finally:
+          - id: synchronize_portfolio
+            description: |
+              Checks if tickers used in portfolio are in the data base.
+            type: io.kestra.plugin.core.flow.Subflow
+            namespace: ppt-project
+            flowId: subflow_synchronize_portfolio
+            inputs:
+              backfill_all: "{{inputs.whole_history}}"
+              data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+              data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
 
-#       - id: run_dbt
-#         description: |
-#           Runs the dbt: `dbt build` by default.
-#         type: io.kestra.plugin.core.flow.Subflow
-#         namespace: ppt-project
-#         flowId: postgres_dbt
-#         inputs:
-#           first_dbt_run: "{{inputs.initialize}}"
+      - id: read_all_tickers_list
+        type: io.kestra.plugin.core.kv.Get
+        key: all_tickers
 
-#       - id: purge_files
-#         type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
-#         description: To avoid cluttering your storage, we will remove the downloaded files
+      - id: subflow_update_all_tickers_prices
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: ppt-project
+        flowId: subflow_ticker_history
+        inputs:
+          region: all
+          tickers: "{{outputs.read_all_tickers_list.value}}"
+          backfill_all: false
+          data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+          data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+
+      - id: run_dbt
+        description: |
+          Runs the dbt: `dbt build` by default.
+        type: io.kestra.plugin.core.flow.Subflow
+        namespace: ppt-project
+        flowId: bigquery_dbt
+        inputs:
+          first_dbt_run: "{{inputs.initialize}}"
+
+      - id: purge_files
+        type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+        description: To avoid cluttering your storage, we will remove the downloaded files
 
 pluginDefaults:
   - type: io.kestra.plugin.gcp

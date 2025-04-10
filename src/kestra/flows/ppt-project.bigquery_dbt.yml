@@ -31,11 +31,11 @@ tasks:
   - id: dbt-build
     type: io.kestra.plugin.dbt.cli.DbtCLI
     env:
-      DBT_DATABASE: "{{ kv('POSTGRES_DB_NAME') }}"
-      DBT_SCHEMA: public
+      DBT_DATABASE: "{{kv('GCP_PROJECT_ID')}}"
+      DBT_SCHEMA: "{{kv('GCP_DATASET')}}"
     namespaceFiles:
       enabled: true
-    containerImage: ghcr.io/kestra-io/dbt-postgres:latest
+    containerImage: ghcr.io/kestra-io/dbt-bigquery:latest
     taskRunner:
       type: io.kestra.plugin.scripts.runner.docker.Docker
       networkMode: host
@@ -45,26 +45,19 @@ tasks:
     storeManifest:
       key: manifest.json
       namespace: "{{ flow.namespace }}"
+    inputFiles:
+      sa.json: "{{secret('GCP_SERVICE_ACCOUNT')}}"
     profiles: |
       ppt:
         outputs:
           dev:
-            type: postgres
-            host: "{{ kv('POSTGRES_HOST') }}"
-            user: "{{ kv('POSTGRES_USER') }}"
-            password: "{{ kv('POSTGRES_PWD') }}"
-            port: {{ kv('POSTGRES_PORT') }}
-            dbname: "{{ kv('POSTGRES_DB_NAME') }}"
-            schema: "{{ kv('POSTGRES_SCHEMA') }}"
-            threads: 8
-            connect_timeout: 10
+            type: bigquery
+            method: service-account
+            keyfile: sa.json
+            project: "{{kv('GCP_PROJECT_ID')}}"
+            dataset: "{{kv('GCP_DATASET')}}"
+            location: "{{kv('GCP_LOCATION')}}"
             priority: interactive
         target: dev
     description: |
-      Note that you need to adjust the models/staging/schema.yml file to match your database and schema.
-      ```yaml
-      sources:
-        - name: staging
-          database: postgres-ppt
-          schema: public
-      ```
+      Risk-return profile and net gain and cumulative return dynamics.

@@ -7,7 +7,7 @@ past_prices as (
 		, lag(close, 1) over (
 			partition by ticker
 			order by date
-		)
+		) as _lag
 	from {{ ref('stg_tickers_prices') }}
 )
 , returns as (
@@ -15,7 +15,7 @@ past_prices as (
 		ticker
 		, date
         , close
-		, (close/lag - 1) as return
+		, (close/_lag - 1) as return
 	from past_prices
 )
 select *

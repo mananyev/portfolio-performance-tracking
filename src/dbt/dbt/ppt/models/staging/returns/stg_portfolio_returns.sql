@@ -15,7 +15,7 @@ portfolio_positions as (
 		, lag(close, 1) over (
 			partition by ticker
 			order by date
-		)
+		) as _lag
 	from {{ ref('stg_tickers_prices') }}
         inner join portfolio_tickers using (ticker)
 )
@@ -24,7 +24,7 @@ portfolio_positions as (
 		past_prices.ticker
 		, past_prices.date
         , past_prices.close
-		, (past_prices.close/past_prices.lag - 1) as return
+		, (past_prices.close/past_prices._lag - 1) as return
 		, (
             sum(case
                 when portfolio_positions.date::date = past_prices.date 

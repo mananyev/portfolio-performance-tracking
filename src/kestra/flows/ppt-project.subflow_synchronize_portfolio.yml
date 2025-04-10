@@ -14,9 +14,9 @@ inputs:
 
 
 variables:
-  all_tickers_names_data: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
-  portfolio_positions_table: "{{kv('POSTGRES_SCHEMA') ~ '.portfolio_positions'}}"
-  all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
+  portfolio_tickers_data: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
+  portfolio_positions_table: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.portfolio_positions"
+  portfolio_tickers_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/portfolio_positions.csv"
 
 
 tasks:
@@ -26,7 +26,7 @@ tasks:
 
   - id: check_missing_kv
     type: io.kestra.plugin.core.flow.If
-    condition: "{{ outputs.get_portfolio_tickers_from_KV | length == 0 }}"
+    condition: "{{ outputs.get_portfolio_tickers_from_KV.value | length == 0 }}"
     then:
       - id: log_missing_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
@@ -66,30 +66,28 @@ tasks:
         key: portfolio_tickers
         value: "{{ outputs.get_portfolio_tickers.vars.portfolio_tickers }}"
 
-      - id: create_portfolio_table
-        type: io.kestra.plugin.jdbc.postgresql.Queries
+      - id: upload_portfolio_tickers_to_gcs
+        type: io.kestra.plugin.gcp.gcs.Upload
+        from: "{{render(vars.portfolio_tickers_data)}}"
+        to: "{{render(vars.portfolio_tickers_gcs_file)}}"
+
+      - id: copy_portfolio_positions_into_staging_table
+        type: io.kestra.plugin.gcp.bigquery.Query
         sql: |
-          CREATE TABLE IF NOT EXISTS {{render(vars.portfolio_positions_table)}} (
-            ticker      text,
-            type        text,
-            timestamp   timestamp,
-            volume      double precision,
-            volume_type text
+          CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.portfolio_positions_table)}}`
+          (
+              ticker STRING OPTIONS (description = 'The ticker symbol from Yahoo! Finance.')
+              , type STRING OPTIONS (description = 'Buy or Sell position.')
+              , timestamp TIMESTAMP OPTIONS (description = 'Position timestamp.')
+              , volume NUMERIC OPTIONS (description = 'Position volume.')
+              , volume_type STRING OPTIONS (description = 'Volume type (shares).')
+          )
+          OPTIONS (
+              format = 'CSV',
+              uris = ['{{render(vars.portfolio_tickers_gcs_file)}}'],
+              skip_leading_rows = 1,
+              ignore_unknown_values = TRUE
           );
-
-      - id: truncate_portfolio_positions_table
-        type: io.kestra.plugin.jdbc.postgresql.Queries
-        sql: |
-          TRUNCATE TABLE {{render(vars.portfolio_positions_table)}};
-
-      - id: copy_in_portfolio_positions_data
-        type: io.kestra.plugin.jdbc.postgresql.CopyIn
-        format: CSV
-        from: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
-        table: "{{render(vars.portfolio_positions_table)}}"
-        header: true
-        columns: [ticker, type, timestamp, volume, volume_type]
-
     else:
       - id: log_found_portfolio_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
@@ -105,34 +103,14 @@ tasks:
         type: io.kestra.plugin.core.kv.Get
         key: all_tickers
 
-      # - id: read_all_tickers_list
-      #   type: io.kestra.plugin.jdbc.postgresql.Query
-      #   sql: |
-      #     select distinct ticker
-      #     from {{render(vars.all_tickers_prices_table)}};
-      #   store: true
-
-      # - id: format_query_output
-      #   type: io.kestra.plugin.serdes.csv.IonToCsv
-      #   from: "{{outputs.read_all_tickers_list}}"
-
-      # - id: display_KV
-      #   type: io.kestra.plugin.core.log.Log
-      #   message: |
-      #     portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
-      #     all_tickers: "{{outputs.read_all_tickers_list.value}}"
-
       - id: check_portfolio_tickers_in_all_tickers
         type: io.kestra.plugin.scripts.python.Script
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
         beforeCommands:
           - pip install kestra
-        # containerImage: python
         env:
           portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
           all_tickers: "{{outputs.read_all_tickers_list.value}}"
-        # inputFiles:
-        #   all_tickers.csv: "{{outputs['format_query_output'].uri}}"
         script: |
           import os
           import ast
@@ -160,17 +138,12 @@ tasks:
               Missing following tickers:
               "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}."
 
-          # - id: load_missing_tickers_data
-          #   type: io.kestra.plugin.core.flow.ForEach
-          #   concurrencyLimit: 0
-          #   values: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
-          #   tasks:
           - id: subflow_run_backfill
             type: io.kestra.plugin.core.flow.Subflow
             namespace: ppt-project
             flowId: subflow_ticker_history
             inputs:
-              # string_input: "{{ taskrun.value }}"
+              region: missing_tickers
               tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
               backfill_all: true
               data_from: "None"
@@ -182,18 +155,25 @@ tasks:
               - pip install kestra
             # containerImage: python
             env:
-              portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
+              region_tickers: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
               all_tickers: "{{outputs.read_all_tickers_list.value}}"
             script: |
               import os
               import ast
               from kestra import Kestra
 
-              portfolio_tickers = ast.literal_eval(os.getenv('portfolio_tickers'))
-              all_tickers = ast.literal_eval(os.getenv('all_tickers'))
+              region_tickers = ast.literal_eval(os.getenv('region_tickers'))
+              all_tickers_envv = os.getenv('all_tickers')
+              if all_tickers_envv:
+                all_tickers = ast.literal_eval(all_tickers_envv)
+              else:
+                all_tickers = []
+
+              # print(f"region_tickers: {region_tickers}")
+              # print(f"all_tickers: {all_tickers}")
 
               Kestra.outputs({'all_tickers': sorted(list(set(
-                all_tickers + portfolio_tickers
+                all_tickers + region_tickers
               )))})
 
           - id: store_updated_all_tickers_in_KV
@@ -202,34 +182,20 @@ tasks:
             key: all_tickers
             value: "{{ outputs.update_all_tickers_list.vars.all_tickers }}"
             overwrite: true
-
         else:
           - id: log_no_portfolio_tickers_missing
             type: io.kestra.plugin.core.log.Log
             message: All portfolio tickers are already in the data.
 
-        # finally:
-        #   # - id: load_portfolio_tickers_data
-        #   #   type: io.kestra.plugin.core.flow.ForEach
-        #   #   concurrencyLimit: 0
-        #   #   values: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
-        #   #   tasks:
-        #   - id: subflow_run
-        #     type: io.kestra.plugin.core.flow.Subflow
-        #     namespace: ppt-project
-        #     flowId: subflow_ticker_history
-        #     inputs:
-        #       # string_input: "{{ taskrun.value }}"
-        #       region: "portfolio"
-        #       tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
-        #       backfill_all: "{{ inputs.backfill_all }}"
-        #       data_from: "{{ inputs.data_from }}"
-        #       data_to: "{{ inputs.data_to }}"
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: To avoid cluttering your storage, we will remove the downloaded files
 
 
 pluginDefaults:
-  - type: io.kestra.plugin.jdbc.postgresql
+  - type: io.kestra.plugin.gcp
     values:
-      url: "jdbc:postgresql://{{kv('POSTGRES_HOST')}}:{{kv('POSTGRES_PORT')}}/{{kv('POSTGRES_DB_NAME')}}"
-      username: "{{kv('POSTGRES_USER')}}"
-      password: "{{kv('POSTGRES_PWD')}}"
+      serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"

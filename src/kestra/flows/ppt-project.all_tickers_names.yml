@@ -62,8 +62,8 @@ tasks:
               , low FLOAT64 OPTIONS (description = 'Daily Low price')
               , close FLOAT64 OPTIONS (description = 'Daily Close price.')
               , volume INTEGER OPTIONS (description = 'Daily Traded volume.')
-              , dividends NUMERIC OPTIONS (description = 'Daily Dividends paid.')
-              , stock_splits NUMERIC OPTIONS (description = 'Daily Stock splits.')
+              , dividends FLOAT64 OPTIONS (description = 'Daily Dividends paid.')
+              , stock_splits FLOAT64 OPTIONS (description = 'Daily Stock splits.')
           )
           PARTITION BY DATE_TRUNC(date, MONTH)
           CLUSTER BY ticker;

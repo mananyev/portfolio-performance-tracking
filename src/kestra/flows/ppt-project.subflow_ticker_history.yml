@@ -21,10 +21,10 @@ inputs:
 variables:
   # ticker_history_file: "{{outputs.each_region.outputFiles['price_history.csv']}}"
   # table: "public.ticker_{{outputs.each_region.vars.ticker | replace({'.': '_', '-': '_', ':': '_', '=': '_'})}}"
-  region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ render(vars.region) ~ '_tickers_prices_table'}}"
+  region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
   all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
   region_tickers_prices_data: "{{outputs.each_region.outputFiles['price_history.csv']}}"
-  region_tickers_prices_gcs_file: "{{'gs://' ~ kv('GCP_BUCKET_NAME') ~ '/' ~ render(vars.region_tickers_prices_data)}}"
+  region_tickers_prices_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{inputs.region}}_tickers_price_history.csv"
 
 
 tasks:
@@ -72,7 +72,7 @@ tasks:
   - id: upload_region_tickers_to_gcs
     type: io.kestra.plugin.gcp.gcs.Upload
     from: "{{render(vars.region_tickers_prices_data)}}"
-    to: "render(vars.region_tickers_prices_gcs_file)"
+    to: "{{render(vars.region_tickers_prices_gcs_file)}}"
 
   - id: copy_in_ticker_data
     type: io.kestra.plugin.gcp.bigquery.Query
@@ -81,10 +81,10 @@ tasks:
       (
         ticker STRING OPTIONS (description = 'The ticker symbol from Yahoo! Finance.')
         , date DATE OPTIONS (description = 'The date to which financial data corresponds.')
-        , open NUMERIC OPTIONS (description = 'Daily Open price.')
-        , high NUMERIC OPTIONS (description = 'Daily High price.')
-        , low NUMERIC OPTIONS (description = 'Daily Low price')
-        , close NUMERIC OPTIONS (description = 'Daily Close price.')
+        , open FLOAT64 OPTIONS (description = 'Daily Open price.')
+        , high FLOAT64 OPTIONS (description = 'Daily High price.')
+        , low FLOAT64 OPTIONS (description = 'Daily Low price')
+        , close FLOAT64 OPTIONS (description = 'Daily Close price.')
         , volume INTEGER OPTIONS (description = 'Daily Traded volume.')
         , dividends NUMERIC OPTIONS (description = 'Daily Dividends paid.')
         , stock_splits NUMERIC OPTIONS (description = 'Daily Stock splits.')

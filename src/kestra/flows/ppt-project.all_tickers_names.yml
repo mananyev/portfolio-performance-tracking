@@ -186,16 +186,25 @@ tasks:
         type: io.kestra.plugin.core.kv.Get
         key: all_tickers
 
-      - id: subflow_update_all_tickers_prices
-        type: io.kestra.plugin.core.flow.Subflow
-        namespace: ppt-project
-        flowId: subflow_ticker_history
-        inputs:
-          region: all
-          tickers: "{{outputs.read_all_tickers_list.value}}"
-          backfill_all: false
-          data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
-          data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+      - id: no_update_after_backfill
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{inputs.reload_tickers_list == true}}"
+        then:
+          - id: no_update_needed
+            type: io.kestra.plugin.core.log.Log
+            message: |
+              All tickers were just back-filled.
+        else:
+          - id: subflow_update_all_tickers_prices
+            type: io.kestra.plugin.core.flow.Subflow
+            namespace: ppt-project
+            flowId: subflow_ticker_history
+            inputs:
+              region: all
+              tickers: "{{outputs.read_all_tickers_list.value}}"
+              backfill_all: false
+              data_from: "{{trigger.previous ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
+              data_to: "{{trigger.date ?? (execution.startDate | dateAdd(-1, 'DAYS'))}}"
 
       - id: run_dbt
         description: |
@@ -240,7 +249,6 @@ triggers:
             dayOfWeek: "SUNDAY"
       # - type: io.kestra.plugin.core.condition.PublicHoliday
       #   country: US
-
     stopAfter:
       - FAILED
     disabled: false

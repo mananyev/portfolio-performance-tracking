@@ -27,7 +27,7 @@ portfolio_positions as (
 		, (past_prices.close/past_prices._lag - 1) as return
 		, (
             sum(case
-                when portfolio_positions.date::date = past_prices.date 
+                when portfolio_positions.date = past_prices.date 
                 then past_prices.close * portfolio_positions.volume
                 else 0
             end)

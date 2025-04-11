@@ -25,17 +25,11 @@ portfolio_positions as (
 		, past_prices.date
         , past_prices.close
 		, (past_prices.close/past_prices._lag - 1) as return
-		, (
-            sum(case
-                when portfolio_positions.date = past_prices.date 
-                then past_prices.close * portfolio_positions.volume
-                else 0
-            end)
-            over (
-                partition by past_prices.ticker
-                order by past_prices.date
-            )
-        ) as cost
+		, case
+			when portfolio_positions.date = past_prices.date 
+			then past_prices.close * portfolio_positions.volume
+			else 0
+		end as cost
 		, portfolio_positions.volume
 	from past_prices
 		inner join portfolio_positions
@@ -44,27 +38,25 @@ portfolio_positions as (
 )
 , portfolio_dynamics as (
 	select
-		sum(volume) as position
+		date
 		, ticker
-		, date
 		, close
 		, return
-		, cost
+		, sum(volume) as position
+		, sum(cost) as cost
 	from returns
 	where return is not null
-	group by ticker
-		, date
+	group by date
+		, ticker
 		, close
 		, return
-		, cost
 )
 select
 	date
-    , ticker
-    , position
-    , close
-    , return
-	, 1.0 * position / sum(position) over (partition by date) as share
-    , cost
+	, ticker
+	, close
+	, return
+	, position
+	, cost
+	, close * position as market_value
 from portfolio_dynamics
-order by date, ticker

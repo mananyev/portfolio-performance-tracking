@@ -6,7 +6,7 @@ corrected_portfolio_positions as (
 			-- BigQuery: dayofweek returns 1=Sunday, 7=Saturday
 			when extract(dayofweek from timestamp) between 2 and 6
 			then cast(timestamp as date)
-			else date_trunc(date_add(cast(timestamp as date), interval 1 week), week)
+			else date_trunc(date_add(cast(timestamp as date), interval 1 week), isoweek)
 		end as date
 		, case
             when type = 'buy'

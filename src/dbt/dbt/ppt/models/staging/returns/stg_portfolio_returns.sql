@@ -24,7 +24,7 @@ portfolio_positions as (
 		past_prices.ticker
 		, past_prices.date
         , past_prices.close
-		, (past_prices.close/past_prices._lag - 1) as return
+		, past_prices.close/past_prices._lag - 1 as return
 		, case
 			when portfolio_positions.date = past_prices.date 
 			then past_prices.close * portfolio_positions.volume

@@ -19,6 +19,7 @@ portfolio_dynamics as (
         *
         , total_value / _lag - 1 as portfolio_return
         , ln(1.0 * total_value / _lag) as log_return
+        , sum(ln(1.0 * total_value / _lag)) over (order by date) as cumulative_log_return
     from with_lag
     where _lag is not null
 )
@@ -29,6 +30,6 @@ select
     , net_value
     , portfolio_return
     , log_return
-    , sum(exp(log_return) over (order by date)) - 1 as cumulative_return
+    , exp(cumulative_log_return) - 1 as cumulative_return
 from final
 order by date

@@ -18,6 +18,7 @@ past_prices as (
 		, (close/_lag - 1) as return
 		, ln(1.0 * close / _lag) as log_return
 	from past_prices
+	where _lag is not null
 )
 select *
 from returns

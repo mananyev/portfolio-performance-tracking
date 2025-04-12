@@ -35,25 +35,25 @@ tasks:
     type: io.kestra.plugin.core.kv.Set
     key: GCP_PROJECT_ID
     kvType: STRING
-    value: "{{ envs.TF_VAR_project }}"
+    value: "{{ envs.project }}"
 
   - id: gcp_location
     type: io.kestra.plugin.core.kv.Set
     key: GCP_LOCATION
     kvType: STRING
-    value: "{{ envs.TF_VAR_location }}"
+    value: "{{ envs.location }}"
 
   - id: gcp_bucket_name
     type: io.kestra.plugin.core.kv.Set
     key: GCP_BUCKET_NAME
     kvType: STRING
-    value: "{{ envs.TF_VAR_gcs_bucket_name }}"  # make sure it's globally unique!
+    value: "{{ envs.gcs_bucket_name }}"  # make sure it's globally unique!
 
   - id: gcp_dataset
     type: io.kestra.plugin.core.kv.Set
     key: GCP_DATASET
     kvType: STRING
-    value: "{{ envs.TF_VAR_bq_dataset_name }}"
+    value: "{{ envs.bq_dataset_name }}"
 
   # Common tables
   - id: set_all_tickers_table_name

@@ -1,5 +1,6 @@
 # Custom Portfolio Performance Tracking
 
+> [!NOTE]
 > DataTalksClub data-engineering-zoomcamp capstone project.
 
 
@@ -21,10 +22,15 @@ The final dashboard is shown on the screenshot below.
 
 Here is the [link](https://lookerstudio.google.com/s/vaDl_y1V2eA) to the Dashboard in Looker.
 
-**NOTE**: this dashboard is active till 2025-04-26, and will be terminated afterwards. Please see the screenshot below or use `local/kestra` branch with a Grafana dashboarad.
+---
+> [!NOTE]
+> This dashboard will be active till 2025-04-26, and will be terminated afterwards. Please see the screenshot below or use `local/kestra` branch with a Grafana dashboarad.
+
+---
 
 ![Dashboard in Looker](./assets/screenshots/looker_dashboard.png)
 
+> [!NOTE]
 > P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
 [^1]: Trade Republic shows the statistics and the dynamics for returns/gains of the performance portfolio you currently have, not for the portfolio you want to check/compare.
@@ -44,7 +50,7 @@ For the GCP setup, the following tools have been used
 
 1. Could storage infrastructure is implemented using Infrastructure-as-Code (IaC) with [Terraform](https://www.terraform.io/).
 2. Workflow orchestration with batch processing is implemented in [Kestra](https://kestra.io/).
-3. Data is loaded via [Python](https://www.python.org/) scripts using popular libraries such as: `requests`, `beautifulsoup`, `pandas`. Financial data is retreived using `yfinance` library.
+3. Data is loaded via [Python](https://www.python.org/) scripts using popular libraries such as: `requests`, `beautifulsoup`, `pandas`. Financial data is retreived using `yfinance` library API.
 4. Data is stored in a [GCS](https://cloud.google.com/storage) bucket and loaded to [BigQuery](https://cloud.google.com/bigquery).
 5. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
 6. Dashboard in [Looker](https://cloud.google.com/looker-bi).
@@ -63,7 +69,7 @@ For installation on GCP you need:
 
 Please, read the complete [installation guide here](./installation.md).
 
-[^admin]: Storage Admin and BigQuery admin might have too broad permissions but we used it during the course. I recommend using the same roles when running a replication of this project.
+[^admin]: Storage Admin and BigQuery Admin might have too broad permissions than what you need for this project. However, we used such permissions during the course. I recommend using the same roles when running a replication of this project but considering restricting those when using in production environments.
 
 ### 2.4 Data Lineage
 

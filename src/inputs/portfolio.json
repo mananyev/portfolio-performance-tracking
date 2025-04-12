@@ -1,32 +1,37 @@
-{
-    "NVDA": {
+[
+    {
+        "ticker": "NVDA",
         "type": "buy",
         "timestamp": "2023-11-05 20:21:02.34",
         "volume": "5",
         "volume_type": "shares"
-    }
-    , "AAPL": {
+    },
+    {
+        "ticker": "AAPL",
         "type": "buy",
         "timestamp": "2024-05-05 13:11:22.00",
         "volume": "3",
         "volume_type": "shares"
-    }
-    , "TSLA": {
+    },
+    {
+        "ticker": "TSLA",
         "type": "buy",
         "timestamp": "2024-11-05 19:11:11.05",
         "volume": "5",
         "volume_type": "shares"
-    }
-    , "AAPL": {
+    },
+    {
+        "ticker": "AAPL",
         "type": "sell",
         "timestamp": "2025-02-10 13:11:22.30",
         "volume": "3",
         "volume_type": "shares"
-    }
-    , "TSLA": {
+    },
+    {
+        "ticker": "TSLA",
         "type": "sell",
         "timestamp": "2025-02-10 13:12:11.01",
         "volume": "5",
         "volume_type": "shares"
     }
-}
+]

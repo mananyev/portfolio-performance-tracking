@@ -54,8 +54,7 @@ tasks:
           with open("portfolio.json", 'r') as file:
               positions_data = json.load(file)
 
-          portfolio_tickers = sorted(list(set([k for k in positions_data.keys()])))
-          portfolio_df = pd.DataFrame(positions_data).T
+          portfolio_df = pd.DataFrame(positions_data)
 
           portfolio_df.to_csv("portfolio_positions.csv", index=True)
           Kestra.outputs({'portfolio_tickers': portfolio_tickers})

@@ -3,6 +3,7 @@ portfolio_dynamics as (
     select
         date
         , sum(cost) as total_cost
+        , sum(cash_flow) as cash_flow
         , sum(market_value) as total_value
         , sum(market_value) - sum(cost) as net_value
     from {{ ref('stg_portfolio_returns') }}
@@ -17,9 +18,9 @@ portfolio_dynamics as (
 , final as (
     select
         *
-        , total_value / _lag - 1 as portfolio_return
-        , ln(1.0 * total_value / _lag) as log_return
-        , sum(ln(1.0 * total_value / _lag)) over (order by date) as cumulative_log_return
+        , total_value / (_lag+cash_flow) - 1 as portfolio_return
+        , ln(1.0 * total_value / (_lag+cash_flow)) as log_return
+        , sum(ln(1.0 * total_value / (_lag+cash_flow))) over (order by date) as cumulative_log_return
     from with_lag
     where _lag is not null
 )

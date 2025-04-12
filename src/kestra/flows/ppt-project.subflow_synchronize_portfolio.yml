@@ -55,8 +55,9 @@ tasks:
               positions_data = json.load(file)
 
           portfolio_df = pd.DataFrame(positions_data)
+          portfolio_tickers = portfolio_df.ticker.tolist()
 
-          portfolio_df.to_csv("portfolio_positions.csv", index=True)
+          portfolio_df.to_csv("portfolio_positions.csv", index=False)
           Kestra.outputs({'portfolio_tickers': portfolio_tickers})
 
       - id: store_portfolio_tickers_in_KV
@@ -70,7 +71,7 @@ tasks:
         from: "{{render(vars.portfolio_tickers_data)}}"
         to: "{{render(vars.portfolio_tickers_gcs_file)}}"
 
-      - id: copy_portfolio_positions_into_staging_table
+      - id: copy_portfolio_positions_into_table
         type: io.kestra.plugin.gcp.bigquery.Query
         sql: |
           CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.portfolio_positions_table)}}`

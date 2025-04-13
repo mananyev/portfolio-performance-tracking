@@ -1,20 +1,23 @@
 # Installation Guide
 
+> [!NOTE]
 > For the local implementation of the data pipeline with orchestration in Kestra.
 
 ## 1. Prerequisites
 
-1. Make sure you have Docker and `docker-compose` installed on your machine.
+1.  Make sure you have Docker and `docker-compose` installed on your machine.
 
+   > [!NOTE]
    > To install in Linux terminal, run:
    >
    > ```sudo apt-get install --upgrade docker docker-compose```
    > 
    > If you are using Windows, you need to install [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
-2. Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra), and 
-3. switch to the `local/kestra` branch.
+1. Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra), and 
+2. switch to the `local/kestra` branch.
 
+> [!IMPORTANT]
 > **Important:** make sure you are switched to the `local/kestra` branch.
 
 

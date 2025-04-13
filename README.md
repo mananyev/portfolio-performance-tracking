@@ -1,11 +1,9 @@
 # Custom Portfolio Performance Tracking
-![GCP](https://img.shields.io/badge/Cloud-Google_Cloud_Platform-blue)
-![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
 ![Kestra](https://img.shields.io/badge/Orchestration-Kestra-purple)
 ![Python](https://img.shields.io/badge/API-Python-yellow)
-![GCS](https://img.shields.io/badge/Data_Lake-Google_Cloud_Storage-blue)
-![BigQuery](https://img.shields.io/badge/Data_Warehouse-BigQuery-blue)
+![Postgres](https://img.shields.io/badge/Data_Warehouse-Postgres-blue)
 ![dbt](https://img.shields.io/badge/Transform-dbt-orange)
+![Grafana](https://img.shields.io/badge/BI-Grafana-orange)
 
 > [!NOTE]
 > DataTalksClub data-engineering-zoomcamp capstone project.

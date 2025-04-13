@@ -126,7 +126,7 @@ tasks:
             if pt not in all_tickers:
               missing_tickers.append(pt)
           
-          Kestra.outputs({'missing_tickers': missing_tickers})
+          Kestra.outputs({'missing_tickers': list(set(missing_tickers))})
 
       - id: if_tickers_missing
         type: io.kestra.plugin.core.flow.If
@@ -146,8 +146,8 @@ tasks:
               region: missing_tickers
               tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
               backfill_all: true
-              data_from: "None"
-              data_to: "None"
+              data_from: "{{execution.startDate | dateAdd(-1, 'DAYS')}}"
+              data_to: "{{execution.startDate | dateAdd(-1, 'DAYS')}}"
 
           - id: update_all_tickers_list
             type: io.kestra.plugin.scripts.python.Script
@@ -155,25 +155,25 @@ tasks:
               - pip install kestra
             # containerImage: python
             env:
-              region_tickers: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
+              missing_tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
               all_tickers: "{{outputs.read_all_tickers_list.value}}"
             script: |
               import os
               import ast
               from kestra import Kestra
 
-              region_tickers = ast.literal_eval(os.getenv('region_tickers'))
+              missing_tickers = ast.literal_eval(os.getenv('missing_tickers'))
               all_tickers_envv = os.getenv('all_tickers')
               if all_tickers_envv:
                 all_tickers = ast.literal_eval(all_tickers_envv)
               else:
                 all_tickers = []
 
-              # print(f"region_tickers: {region_tickers}")
+              # print(f"missing_tickers: {missing_tickers}")
               # print(f"all_tickers: {all_tickers}")
 
               Kestra.outputs({'all_tickers': sorted(list(set(
-                all_tickers + region_tickers
+                all_tickers + missing_tickers
               )))})
 
           - id: store_updated_all_tickers_in_KV

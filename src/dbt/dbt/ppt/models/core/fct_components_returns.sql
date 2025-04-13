@@ -9,4 +9,5 @@ select
 		then null
 		else market_value - cost
 	end as current_value
+	, position
 from {{ ref('stg_portfolio_returns') }}

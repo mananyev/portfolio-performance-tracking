@@ -23,6 +23,7 @@ tasks:
     key: PORTFOLIO_LINK
     kvType: STRING
     value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/portfolio.json'}}"
+
   # Portfolio JSON
   - id: set_constituents_link
     type: io.kestra.plugin.core.kv.Set

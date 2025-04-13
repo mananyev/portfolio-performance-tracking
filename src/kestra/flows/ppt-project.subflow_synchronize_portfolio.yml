@@ -119,8 +119,6 @@ tasks:
           from kestra import Kestra
           import pandas as pd
           
-          # all_tickers_df = pd.read_csv('all_tickers.csv')
-          # all_tickers ','.join(all_tickers_df.ticker.values.tolist())
           portfolio_tickers = ast.literal_eval(os.getenv('portfolio_tickers'))
           all_tickers = ast.literal_eval(os.getenv('all_tickers'))
           missing_tickers = []
@@ -155,7 +153,6 @@ tasks:
             type: io.kestra.plugin.scripts.python.Script
             beforeCommands:
               - pip install kestra
-            # containerImage: python
             env:
               missing_tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
               all_tickers: "{{outputs.read_all_tickers_list.value}}"
@@ -170,9 +167,6 @@ tasks:
                 all_tickers = ast.literal_eval(all_tickers_envv)
               else:
                 all_tickers = []
-
-              # print(f"missing_tickers: {missing_tickers}")
-              # print(f"all_tickers: {all_tickers}")
 
               Kestra.outputs({'all_tickers': sorted(list(set(
                 all_tickers + missing_tickers

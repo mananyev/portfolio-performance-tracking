@@ -98,8 +98,6 @@ def pull_history(tickers: list, start: str=None, end: str=None) -> pd.DataFrame:
 def prepare_dataframe(data: pd.DataFrame) -> pd.DataFrame:
     """Minor adjustments to the data frame."""
 
-    # assert not data.empty, print("Empty data frame!")
-
     dat = data.reset_index()
     out = pd.DataFrame(
         index=dat.index,

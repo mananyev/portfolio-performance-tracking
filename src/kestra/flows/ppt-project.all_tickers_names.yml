@@ -12,9 +12,6 @@ inputs:
   - id: whole_history
     type: BOOLEAN
     defaults: false
-  # - id: test_run
-  #   type: BOOLEAN
-  #   defaults: true
   - id: reload_tickers_list
     type: BOOLEAN
     defaults: false
@@ -24,11 +21,6 @@ inputs:
   - id: initialize
     type: BOOLEAN
     defaults: false
-  # - id: portfolio_file
-  #   type: FILE
-  # - id: tickers_list_links_file
-  #   type: FILE
-  #   displayName: Select a file with links to Wikipedia pages that contain lists of tickers.
 
 
 variables:
@@ -234,18 +226,12 @@ triggers:
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "0 10 * * *"
     conditions:
-      # - type: io.kestra.plugin.core.condition.Or
-      #   conditions:
       - type: io.kestra.plugin.core.condition.Not
         conditions:
           - type: io.kestra.plugin.core.condition.DayWeek
             dayOfWeek: "MONDAY"
-      # - type: io.kestra.plugin.core.condition.Not
-      #   conditions:
           - type: io.kestra.plugin.core.condition.DayWeek
             dayOfWeek: "SUNDAY"
-      # - type: io.kestra.plugin.core.condition.PublicHoliday
-      #   country: US
 
     stopAfter:
       - FAILED

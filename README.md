@@ -1,11 +1,17 @@
 # Custom Portfolio Performance Tracking
+![GCP](https://img.shields.io/badge/Cloud-Google_Cloud_Platform-blue)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)
+![Kestra](https://img.shields.io/badge/Orchestration-Kestra-purple)
+![Python](https://img.shields.io/badge/API-Python-yellow)
+![GCS](https://img.shields.io/badge/Data_Lake-Google_Cloud_Storage-blue)
+![BigQuery](https://img.shields.io/badge/Data_Warehouse-BigQuery-blue)
+![dbt](https://img.shields.io/badge/Transform-dbt-orange)
 
 > [!NOTE]
 > DataTalksClub data-engineering-zoomcamp capstone project.
 
 
 ## 1. Introduction
-
 ### 1.1 Problem Description
 
 Retail investors, in particular, informed traders, usually look up a lot of information on the Internet.
@@ -15,8 +21,12 @@ Furthermore, it is important to assess the quality of the investment decisions o
 Standard brokers (for example, Trade Republic) offer limited scope for analysis of a custom portfolio.[^1]
 Financial portals like Yahoo! Finance, offer analysis tools and performance tracking for users with paid subscription.[^2]
 
-This project provides a data pipeline that creates a simple overview of the custom portfolio, calculates its risk-return profile (and compares it to other assets in the market including its individual components), tracks its performance over time, and allows building various types of analysis on top.
-The final dashboard is shown on the screenshot below.
+This project provides a data pipeline that creates a fully-functioning data system that can already be used to analyze portfolio performance, and to be used later as a local data source for training ML models.
+The final dashboard provides a simple overview of the custom portfolio, its risk-return profile (and the comparison to risk-return profiles of other assets in the market including portfolio's individual components), and displays portfolio's performance over time.
+Various types of analysis can be built on top of this foundation.
+
+> [!NOTE]
+> P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
 ### 1.2 Final Dashboard
 
@@ -29,9 +39,6 @@ Here is the [link](https://lookerstudio.google.com/s/vaDl_y1V2eA) to the Dashboa
 ---
 
 ![Dashboard in Looker](./assets/screenshots/looker_dashboard.png)
-
-> [!NOTE]
-> P.S. I am also going to use this data pipeline in the future to train ML models that will help developing trading strategies and optimizing portfolio selection, although these steps are momentarily beyond the scope of the project.
 
 [^1]: Trade Republic shows the statistics and the dynamics for returns/gains of the performance portfolio you currently have, not for the portfolio you want to check/compare.
 
@@ -94,11 +101,11 @@ Please, read the complete [installation guide here](./installation.md).
         1. For the portfolio analysis, we are primarily interested in the performance of the tickers over a certain period. Limiting the period we need to scan in `all_tickers_prices` makes the query less costly.
         2. Portfolios constitute of tickers. In the analysis, we are only interested in histories of those tickers that ever been part of our portfolio. Therefore, clustering on the ticker level further reduces the volume that needs to be scanned in order to get the required histories.
 
-5. Data is transformed using `dbt` and loaded back to BigQuery.
+5.  Data is transformed using `dbt` and loaded back to BigQuery.
 
-   1. Includes the calculation of the risk-return profile for the whole portfolio, its individual components, and other tickers.
+    1. Includes the calculation of the risk-return profile for the whole portfolio, its individual components, and other tickers.
 
-6.  Risk-return profile and portfolio's composition and performance are visualized in a Looker dashboard.
+6. Risk-return profile and portfolio's composition and performance are visualized in a Looker dashboard.
 
 <details>
 <summary>See Kestra flows topology here</summary>
@@ -200,14 +207,16 @@ The main purpose for this data pipeline is to create a well-rounded clean databa
 Although the main goal is achieved with the current implementation, I believe it can be further greatly improved.
 Major improvement steps, as I envision them, include:
 
-1. An easy way to load a custom portfolio
+1.  An easy way to load a custom portfolio
 
-   1. assuming an ML model producing an output with tickers (components), their transaction date, and traded volume (similar to the [example portfolio](./src/inputs/portfolio.json)), this pipeline needs to read the file from a local/cloud storage.
+    1. assuming an ML model producing an output with tickers (components), their transaction date, and traded volume (similar to the [example portfolio](./src/inputs/portfolio.json)), this pipeline needs to read the file from a local/cloud storage.
 
-2. A benchmark functionality:
+2.  A benchmark functionality:
 
-   1. Country/region indices, custom portfolios, or backtesting portfolios suggested by an ML model.
-   2. Regional markets performance.
+    1. Country/region indices, custom portfolios, or backtesting portfolios suggested by an ML model.
+    2. Regional markets performance.
+ 
+3. GitHub Actions for CI/CD.
 
 
 ## 6. Acknowledgements

@@ -11,7 +11,7 @@ SERVICE_ACCOUNT_PATH="${SERVICE_ACCOUNT_PATH/\$\{HOME\}/$HOME}"
 if [ -f "$SERVICE_ACCOUNT_PATH" ]; then
     echo "✅ Found credentials at: $SERVICE_ACCOUNT_PATH"
     SECRET_ENCODED=$(base64 -w 0 "$SERVICE_ACCOUNT_PATH")
-    echo "SECRET_credentials_json=$SECRET_ENCODED" >> .env_encoded
+    echo "SECRET_GCP_SERVICE_ACCOUNT=$SECRET_ENCODED" >> .env_encoded
 else
     echo "❌ Credentials file not found at: $SERVICE_ACCOUNT_PATH"
 fi

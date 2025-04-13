@@ -190,7 +190,7 @@ That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and w
             , 'current comp' as tag
         from portfolio_tracking.fct_components_stats cs
             inner join portfolio_tracking.fct_current_breakdown using (ticker)
-        where current_valueis not null
+        where market_value is not null
         )
         union all
         (

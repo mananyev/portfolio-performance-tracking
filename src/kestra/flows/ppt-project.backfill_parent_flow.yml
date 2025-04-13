@@ -1,18 +1,33 @@
 id: backfill_parent_flow
 namespace: ppt-project
+description: |
+  A subflow that is used only for backfill the whole history of prices.
+  Triggered from the main flow, `all_tickers_names`
+  when the data is loaded for the first time or reloaded.
+  Uses regional batches of tickers (read from the input).
 
 
 inputs:
   - id: region_json
     type: STRING
+    description: |
+      A string containing the list with tickers, constituting the index of a selected region.
   - id: backfill_all
     type: BOOLEAN
+    description: |
+      Whether to pull all available historical prices, ignoring time periods.
   - id: data_from
     type: STRING
+    description: |
+      Start of the period for tickers' price histories.
   - id: data_to
     type: STRING
+    description: |
+      End of the period for tickers' price histories.
   - id: reload_tickers_list
     type: BOOLEAN
+    description: |
+      Whether to reload the constituents of a given index.
 
 
 variables:
@@ -27,6 +42,8 @@ variables:
 tasks:
   - id: ion_to_json
     type: io.kestra.plugin.serdes.json.IonToJson
+    description: |
+      Read the passed JSON string.
     from: "{{inputs.region_json}}"
 
   - id: info
@@ -36,6 +53,11 @@ tasks:
 
   - id: extract
     type: io.kestra.plugin.scripts.python.Script
+    description: |
+      Process the read JSON string. Outputs:
+      - region,
+      - link with constituents,
+      - tickers.
     containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
     beforeCommands:
       - pip install kestra
@@ -53,6 +75,9 @@ tasks:
 
   - id: create_region_tickers_prices_table
     type: io.kestra.plugin.gcp.bigquery.Query
+    description: |
+      Creates a table with regional tickers and prices
+      (to be merged into main table later).
     sql: |
       CREATE TABLE IF NOT EXISTS `{{render(vars.region_tickers_prices_table)}}`
       (
@@ -70,6 +95,8 @@ tasks:
 
   - id: create_region_tickers_table
     type: io.kestra.plugin.gcp.bigquery.Query
+    description: |
+      Creates a table with info on tickers constituing the regional index.
     sql: |
       CREATE TABLE IF NOT EXISTS `{{render(vars.region_tickers_table)}}`
       (
@@ -83,25 +110,36 @@ tasks:
 
   - id: check_reload_tickers
     type: io.kestra.plugin.core.flow.If
+    description: |
+      Checks whether regional tickers list needs to be reloaded.
     condition: "{{inputs.reload_tickers_list == true}}"
     then:
       - id: clear_region_tickers_list
         type: io.kestra.plugin.core.kv.Delete
+        description: |
+          Drops KV with the list of the region's tickers.
         key: "{{render(vars.region_tickers)}}"
         errorOnMissing: false
 
       - id: set_region_tickers_kv
         type: io.kestra.plugin.core.kv.Set
+        description: |
+          Sets KV with the list of the region's tickers
+          to exist but contain nothing.
         key: "{{render(vars.region_tickers)}}"
         kvType: STRING
         value: ""
 
   - id: get_all_region_tickers_from_KV
     type: io.kestra.plugin.core.kv.Get
+    description: |
+      Reads the (updated) region tickers from KV.
     key: "{{render(vars.region_tickers)}}"
 
   - id: check_missing_KV
     type: io.kestra.plugin.core.flow.If
+    description: |
+      Checks if KV with region tickers is empty.
     condition: "{{outputs.get_all_region_tickers_from_KV.value | length == 0}}"
     then:
       - id: log_missing_tickers_in_KV
@@ -111,6 +149,8 @@ tasks:
 
       - id: get_all_region_tickers
         type: io.kestra.plugin.scripts.python.Commands
+        description: |
+          Pulls the tickers from the link in the passed JSON.
         namespaceFiles:
           enabled: true
         beforeCommands:
@@ -125,17 +165,23 @@ tasks:
   
       - id: store_tickers_in_KV
         type: io.kestra.plugin.core.kv.Set
+        description: |
+          Saves the loaded tickers into KV for the region's tickers.
         kvType: JSON
         key: "{{render(vars.region_tickers)}}"
         value: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
 
       - id: upload_region_tickers_to_gcs
         type: io.kestra.plugin.gcp.gcs.Upload
+        description: |
+          Loads the data on pulled region's tickers to a GCS bucket.
         from: "{{render(vars.region_tickers_data)}}"
         to: "{{render(vars.region_tickers_gcs_file)}}"
 
       - id: copy_tickers_list_into_staging_table
         type: io.kestra.plugin.gcp.bigquery.Query
+        description: |
+          Copies the file with region's tickers info into the BigQuery table.
         sql: |
           CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.region_tickers_table)}}_ext`
           (
@@ -155,6 +201,8 @@ tasks:
 
       - id: merge_ticker_data
         type: io.kestra.plugin.gcp.bigquery.Query
+        description: |
+          Updates (merges into) the table with all tickers info.
         sql: |
           MERGE INTO `{{render(vars.all_tickers_table)}}` AS M
           USING `{{render(vars.region_tickers_table)}}_ext` AS T
@@ -183,6 +231,9 @@ tasks:
 
       - id: update_all_tickers_list
         type: io.kestra.plugin.scripts.python.Script
+        description: |
+          Updates the KV containing all tickers
+          with the ones loaded from the region's index.
         beforeCommands:
           - pip install kestra
         env:
@@ -206,6 +257,8 @@ tasks:
 
       - id: store_updated_all_tickers_in_KV
         type: io.kestra.plugin.core.kv.Set
+        description: |
+          Saves the updated KV.
         kvType: JSON
         key: all_tickers
         value: "{{ outputs.update_all_tickers_list.vars.all_tickers }}"
@@ -221,10 +274,15 @@ tasks:
     finally:
       - id: read_region_tickers_list
         type: io.kestra.plugin.core.kv.Get
+        description: |
+          Reads the (updated) KV with region's tickers.
         key: "{{render(vars.region_tickers)}}"
 
       - id: subflow_run
         type: io.kestra.plugin.core.flow.Subflow
+        description: |
+          Pulls the price histories for the tickers in the passed JSON.
+          Uses a Python script with `yfinance` API calls.
         namespace: ppt-project
         flowId: subflow_ticker_history
         inputs:

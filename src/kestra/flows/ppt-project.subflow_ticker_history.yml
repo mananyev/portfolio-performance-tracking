@@ -1,18 +1,30 @@
 id: subflow_ticker_history
 namespace: ppt-project
+description: |
+  A subflow that is used to pull the price histories for the passed tickers.
 
 
 inputs:
   - id: region
     type: STRING
+    description: |
+      Region name of the name of the group of tickers passed.
   - id: tickers
     type: STRING
+    description: |
+      String containing the list of tickers for which to pull the data.
   - id: backfill_all
     type: BOOLEAN
+    description: |
+      Whether pull the whole available history, regardless of the time period.
   - id: data_from
     type: STRING
+    description: |
+      Start of the period, for which to pull the price histories.
   - id: data_to
     type: STRING
+    description: |
+      End of the period, for which to pull the price histories.
 
 
 variables:
@@ -31,6 +43,9 @@ tasks:
 
   - id: each_region
     type: io.kestra.plugin.scripts.python.Commands
+    description: |
+      The task that triggers the Python script to pull histories.
+      Saves the output in a CSV file.
     namespaceFiles:
       enabled: true
     beforeCommands:
@@ -48,11 +63,15 @@ tasks:
   
   - id: upload_region_tickers_to_gcs
     type: io.kestra.plugin.gcp.gcs.Upload
+    description: |
+      Uploads the CSV file with price histories to the GCS bucket.
     from: "{{render(vars.region_tickers_prices_data)}}"
     to: "{{render(vars.region_tickers_prices_gcs_file)}}"
 
   - id: copy_in_ticker_data
     type: io.kestra.plugin.gcp.bigquery.Query
+    description: |
+      Copy the data from the uploaded file to a BigQuery external table.
     sql: |
       CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.region_tickers_prices_table)}}_ext`
       (
@@ -75,6 +94,8 @@ tasks:
 
   - id: add_unique_id
     type: io.kestra.plugin.gcp.bigquery.Query
+    description: |
+      Creates a unique ID based on ticker symbol and date.
     sql: |
       CREATE OR REPLACE TABLE `{{render(vars.region_tickers_prices_table)}}`
       AS
@@ -88,6 +109,8 @@ tasks:
 
   - id: merge_ticker_data
     type: io.kestra.plugin.gcp.bigquery.Query
+    description: |
+      Updates (merges into) the main table with all tickers' prices.
     sql: |
       MERGE INTO {{render(vars.all_tickers_prices_table)}} AS M
       USING {{render(vars.region_tickers_prices_table)}} AS T

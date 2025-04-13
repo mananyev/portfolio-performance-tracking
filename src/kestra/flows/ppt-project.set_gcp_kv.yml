@@ -1,11 +1,15 @@
 id: set_gcp_kv
 namespace: ppt-project
+description: |
+  A separate flow, setting all the KVs.
 
 
 inputs:
   - id: branch
     type: STRING
     defaults: main
+    description: |
+      The branch name used to pull the files from the repository.
 
 
 tasks:
@@ -17,20 +21,29 @@ tasks:
     value: "{{inputs.branch}}"
 
   # Links to indices' constituents pages and portfolio
-  # Indices' constituents JSON
+  # Portfolio JSON
   - id: set_portfolio_link
     type: io.kestra.plugin.core.kv.Set
     key: PORTFOLIO_LINK
     kvType: STRING
     value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/portfolio.json'}}"
-  # Portfolio JSON
+    description: |
+      The link to the JSON file in GitHub repo,
+      containing the portfolio postitions.
+
+  # Indices' constituents JSON
   - id: set_constituents_link
     type: io.kestra.plugin.core.kv.Set
     key: CONSTITUENTS_LINKS
     kvType: STRING
     value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/index_constituents_links.json'}}"
+    description: |
+      The link to the JSON file in GitHub repo,
+      containing the links to the constituents of the selected indices.
 
-  # GCP - make sure you adjust these values!
+  # GCP KVs:
+  # make sure you adjusted these values in .env file
+  # and created .env_encoded with set_environment.sh!
   - id: gcp_project_id
     type: io.kestra.plugin.core.kv.Set
     key: GCP_PROJECT_ID

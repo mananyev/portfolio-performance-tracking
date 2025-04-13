@@ -2,6 +2,8 @@ id: all_tickers_names
 namespace: ppt-project
 description: |
   Working version for Kestra 0.22.2 (GCP).
+  The main flow, orchestrating all the steps.
+  Once all KVs are set (by the `set_gcp_kv` flow), it is good to go.
 
 
 concurrency:
@@ -12,15 +14,25 @@ inputs:
   - id: whole_history
     type: BOOLEAN
     defaults: false
+    description: |
+      Whether to pull all available historical prices, ignoring time periods.
   - id: reload_tickers_list
     type: BOOLEAN
     defaults: false
+    description: |
+      Whether to reload the constituents of the indices.
   - id: reload_portfolio
     type: BOOLEAN
     defaults: false
+    description: |
+      Whether to reload the portfolio positions.
   - id: initialize
     type: BOOLEAN
     defaults: false
+    description: |
+      Whether it is the first run: determines whether
+      all the required tables are created, whether scripts
+      and dbt models need to be pulled from GitHub.
 
 
 variables:
@@ -31,10 +43,16 @@ variables:
 tasks:
   - id: first_time_init
     type: io.kestra.plugin.core.flow.If
+    description: |
+      Checks if all components need to be set:
+      - main tables created,
+      - scripts pulled.
     condition: "{{inputs.initialize == true}}"
     then:
       - id: sync_scripts
         type: io.kestra.plugin.git.SyncNamespaceFiles
+        description: |
+          Downloads Python scripts from the GitHub repo.
         url: https://github.com/mananyev/portfolio-performance-tracking
         branch: "{{kv('BRANCH')}}"
         namespace: "{{flow.namespace}}"
@@ -43,6 +61,8 @@ tasks:
 
       - id: create_all_tickers_prices_table
         type: io.kestra.plugin.gcp.bigquery.Query
+        description: |
+          Creates the main table with all tickers and their prices.
         sql: |
           CREATE TABLE IF NOT EXISTS `{{render(vars.all_tickers_prices_table)}}`
           (
@@ -62,6 +82,13 @@ tasks:
 
       - id: create_all_tickers_table
         type: io.kestra.plugin.gcp.bigquery.Query
+        description: |
+          Creates the table, containing all tickers description:
+          - company name,
+          - region,
+          - sector,
+          - industry,
+          - exchange, where traded.
         sql: |
           CREATE TABLE IF NOT EXISTS `{{render(vars.all_tickers_table)}}`
           (
@@ -75,25 +102,37 @@ tasks:
 
   - id: check_reload_tickers_list
     type: io.kestra.plugin.core.flow.If
+    description: |
+      Checks if one needs to reload all tickers data.
     condition: "{{inputs.reload_tickers_list == true}}"
     then:
       - id: clear_all_tickers_list
         type: io.kestra.plugin.core.kv.Delete
+        description: |
+          Drops KV with the list of all tickers in the database.
         key: all_tickers
         errorOnMissing: false
 
       - id: set_all_tickers_kv
         type: io.kestra.plugin.core.kv.Set
+        description: |
+          Sets KV with the list of all tickers in the database
+          to exist but contain nothing.
         key: all_tickers
         kvType: STRING
         value: ""
 
       - id: get_constituents_urls
         type: io.kestra.plugin.core.http.Download
+        description: |
+          Downloads JSON file with links to indices' constituents.
         uri: "{{kv('CONSTITUENTS_LINKS')}}"
 
       - id: split_json
         type: io.kestra.plugin.scripts.python.Script
+        description: |
+          Extracts links and region data from the downloaded JSON.
+          Saves the output as a CSV.
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
         inputFiles:
           constituents.json: "{{ outputs.get_constituents_urls.uri }}"
@@ -113,16 +152,22 @@ tasks:
 
       - id: upload_to_gcs
         type: io.kestra.plugin.gcp.gcs.Upload
+        description: |
+          Uploads the parsed JSON (CSV file) to the GS bucket.
         from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
         to: "gs://{{kv('GCP_BUCKET_NAME')}}/index_constituents_and_links.csv"
 
       - id: read_regions_csv
         type: io.kestra.plugin.serdes.csv.CsvToIon
+        description: |
+          Splits the regions / indices into rows to be used in the loop below.
         from: "{{outputs.split_json.outputFiles['constituents_links.csv']}}"
 
       - id: loop_over_regions
         description: |
-          Historic prices in Ticker batches (with `period='max'` argument).
+          Downloads and saves historic prices in region batches
+          (with `period='max'` argument).
+          Uses a subflow `backfill_parent_flow`.
         type: io.kestra.plugin.core.flow.ForEachItem
         items: "{{outputs.read_regions_csv.uri}}"
         namespace: ppt-project
@@ -143,15 +188,22 @@ tasks:
     finally:
       - id: check_reload_portfolio
         type: io.kestra.plugin.core.flow.If
+        description: |
+          Checks if portfolio positions have to be reloaded.
         condition: "{{inputs.reload_portfolio == true}}"
         then:
           - id: clear_portfolio
             type: io.kestra.plugin.core.kv.Delete
+            description: |
+              Drops KV with the list of unique portfolio tickers.
             key: portfolio_tickers
             errorOnMissing: false
 
           - id: set_portfolio_tickers_kv
             type: io.kestra.plugin.core.kv.Set
+            description: |
+              Sets KV with the list of unique portfolio tickers
+              to exist but contain nothing.
             key: portfolio_tickers
             kvType: STRING
             value: ""
@@ -166,6 +218,9 @@ tasks:
           - id: synchronize_portfolio
             description: |
               Checks if tickers used in portfolio are in the data base.
+              Downloads the missing tickers and
+              updates the list of all tickers.
+              Uses a subflow `subflow_synchronize_portfolio`.
             type: io.kestra.plugin.core.flow.Subflow
             namespace: ppt-project
             flowId: subflow_synchronize_portfolio
@@ -176,10 +231,15 @@ tasks:
 
       - id: read_all_tickers_list
         type: io.kestra.plugin.core.kv.Get
+        description: |
+          Loads (updated) tickers in the database.
         key: all_tickers
 
       - id: no_update_after_backfill
         type: io.kestra.plugin.core.flow.If
+        description: |
+          Checks if backfill already happened
+          (after the first run or after reloading all tickers).
         condition: "{{inputs.reload_tickers_list == true}}"
         then:
           - id: no_update_needed
@@ -189,6 +249,9 @@ tasks:
         else:
           - id: subflow_update_all_tickers_prices
             type: io.kestra.plugin.core.flow.Subflow
+            description: |
+              Updates the data for all tickers
+              with the latest trading day information.
             namespace: ppt-project
             flowId: subflow_ticker_history
             inputs:

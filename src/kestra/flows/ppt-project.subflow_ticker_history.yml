@@ -1,0 +1,169 @@
+id: subflow_ticker_history
+namespace: ppt-project
+
+
+inputs:
+  # - id: string_input
+  #   type: STRING
+  #   defaults: NVDA
+  - id: region
+    type: STRING
+  - id: tickers
+    type: STRING
+  - id: backfill_all
+    type: BOOLEAN
+  - id: data_from
+    type: STRING
+  - id: data_to
+    type: STRING
+
+
+variables:
+  # ticker_history_file: "{{outputs.each_region.outputFiles['price_history.csv']}}"
+  # table: "public.ticker_{{outputs.each_region.vars.ticker | replace({'.': '_', '-': '_', ':': '_', '=': '_'})}}"
+  region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
+  all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
+  region_tickers_prices_data: "{{outputs.each_region.outputFiles['price_history.csv']}}"
+  region_tickers_prices_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/{{inputs.region}}_tickers_price_history_{{inputs.data_from | date('yyyy-MM-dd')}}_{{inputs.data_to | date('yyyy-MM-dd')}}.csv"
+
+
+tasks:
+  - id: info
+    type: io.kestra.plugin.core.log.Log
+    message: |
+      region: {{inputs.region}}
+      tickers: {{inputs.tickers}}
+
+  - id: each_region
+    type: io.kestra.plugin.scripts.python.Commands
+    namespaceFiles:
+      enabled: true
+    beforeCommands:
+      - pip install yfinance html5lib kestra
+    containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+    env:
+      # ticker: "{{inputs.string_input }}"
+      tickers: "{{inputs.tickers}}"
+      data_from: "{{inputs.data_from}}"
+      data_to: "{{inputs.data_to}}"
+      backfill_all: "{{inputs.backfill_all}}"
+    commands:
+      - python scripts/price_history.py
+    outputFiles:
+      - price_history.csv
+  
+  # # staging
+  # - id: create_single_region_tickers_table
+  #   type: io.kestra.plugin.jdbc.postgresql.Queries
+  #   sql: |
+  #     CREATE TABLE IF NOT EXISTS {{render(vars.table)}} (
+  #         unique_row_id text,
+  #         ticker        text,
+  #         date          date,
+  #         open          double precision,
+  #         high          double precision,
+  #         low           double precision,
+  #         close         double precision,
+  #         volume        bigint,
+  #         dividends     double precision,
+  #         stock_splits  real
+  #     );
+
+  - id: upload_region_tickers_to_gcs
+    type: io.kestra.plugin.gcp.gcs.Upload
+    from: "{{render(vars.region_tickers_prices_data)}}"
+    to: "{{render(vars.region_tickers_prices_gcs_file)}}"
+
+  - id: copy_in_ticker_data
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.region_tickers_prices_table)}}_ext`
+      (
+        ticker STRING OPTIONS (description = 'The ticker symbol from Yahoo! Finance.')
+        , date DATE OPTIONS (description = 'The date to which financial data corresponds.')
+        , open FLOAT64 OPTIONS (description = 'Daily Open price.')
+        , high FLOAT64 OPTIONS (description = 'Daily High price.')
+        , low FLOAT64 OPTIONS (description = 'Daily Low price')
+        , close FLOAT64 OPTIONS (description = 'Daily Close price.')
+        , volume INTEGER OPTIONS (description = 'Daily Traded volume.')
+        , dividends FLOAT64 OPTIONS (description = 'Daily Dividends paid.')
+        , stock_splits FLOAT64 OPTIONS (description = 'Daily Stock splits.')
+      )
+      OPTIONS (
+        format = 'CSV',
+        uris = ['{{render(vars.region_tickers_prices_gcs_file)}}'],
+        skip_leading_rows = 1,
+        ignore_unknown_values = TRUE
+      );
+
+  - id: add_unique_id
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      CREATE OR REPLACE TABLE `{{render(vars.region_tickers_prices_table)}}`
+      AS
+      SELECT
+        MD5(CONCAT(
+          COALESCE(CAST(ticker AS STRING), ""),
+          COALESCE(CAST(date AS STRING), "")
+        )) AS unique_row_id
+        , *
+      FROM `{{render(vars.region_tickers_prices_table)}}_ext`;
+
+  - id: merge_ticker_data
+    type: io.kestra.plugin.gcp.bigquery.Query
+    sql: |
+      MERGE INTO {{render(vars.all_tickers_prices_table)}} AS M
+      USING {{render(vars.region_tickers_prices_table)}} AS T
+      ON M.unique_row_id = T.unique_row_id
+      WHEN MATCHED THEN
+        UPDATE SET
+          open = T.open,
+          high = T.high,
+          low = T.low,
+          close = T.close,
+          volume = T.volume,
+          dividends = T.dividends,
+          stock_splits = T.stock_splits
+      WHEN NOT MATCHED THEN
+        INSERT (
+          unique_row_id,
+          ticker,
+          date,
+          open,
+          high,
+          low,
+          close,
+          volume,
+          dividends,
+          stock_splits
+        )
+        VALUES (
+          T.unique_row_id,
+          T.ticker,
+          T.date,
+          T.open,
+          T.high,
+          T.low,
+          T.close,
+          T.volume,
+          T.dividends,
+          T.stock_splits
+        );
+  
+  # - id: drop_single_ticker_table
+  #   type: io.kestra.plugin.jdbc.postgresql.Queries
+  #   sql: |
+  #     DROP TABLE IF EXISTS {{render(vars.region_tickers_prices_table)}};
+
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: To avoid cluttering your storage, we will remove the downloaded files
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"

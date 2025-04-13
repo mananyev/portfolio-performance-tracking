@@ -1,0 +1,142 @@
+[
+    {
+        "ticker": "NVDA",
+        "type": "buy",
+        "timestamp": "2023-11-05 20:21:02.34",
+        "volume": "5",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "AAPL",
+        "type": "buy",
+        "timestamp": "2024-05-05 13:11:22.00",
+        "volume": "3",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "TSLA",
+        "type": "buy",
+        "timestamp": "2024-11-05 19:11:11.05",
+        "volume": "5",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "AAPL",
+        "type": "sell",
+        "timestamp": "2025-02-10 13:11:22.30",
+        "volume": "3",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "TSLA",
+        "type": "sell",
+        "timestamp": "2025-02-10 13:12:11.01",
+        "volume": "5",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "EU",
+        "type": "buy",
+        "timestamp": "2024-08-19 13:31:31.31",
+        "volume": "100",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-02-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-03-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-04-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-05-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-06-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-07-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-08-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-09-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-10-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-11-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2024-12-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2025-01-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2025-02-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    },
+    {
+        "ticker": "^GSPC",
+        "type": "buy",
+        "timestamp": "2025-03-01 09:00:00.0",
+        "volume": "0.01",
+        "volume_type": "shares"
+    }
+]

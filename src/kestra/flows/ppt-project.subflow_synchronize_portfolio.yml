@@ -1,0 +1,201 @@
+id: subflow_synchronize_portfolio
+namespace: ppt-project
+description: |
+  Synchronize portfolio tickers.
+
+
+inputs:
+  - id: backfill_all
+    type: BOOLEAN
+  - id: data_from
+    type: STRING
+  - id: data_to
+    type: STRING
+
+
+variables:
+  portfolio_tickers_data: "{{ outputs.get_portfolio_tickers.outputFiles['portfolio_positions.csv'] }}"
+  portfolio_positions_table: "{{kv('GCP_PROJECT_ID')}}.{{kv('GCP_DATASET')}}.portfolio_positions"
+  portfolio_tickers_gcs_file: "gs://{{kv('GCP_BUCKET_NAME')}}/portfolio_positions.csv"
+
+
+tasks:
+  - id: get_portfolio_tickers_from_KV
+    type: io.kestra.plugin.core.kv.Get
+    key: portfolio_tickers
+
+  - id: check_missing_kv
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ outputs.get_portfolio_tickers_from_KV.value | length == 0 }}"
+    then:
+      - id: log_missing_tickers_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          Did not find portfolio tickers in KV.
+
+      - id: download_portfolio_file
+        type: io.kestra.plugin.core.http.Download
+        uri: "{{kv('PORTFOLIO_LINK')}}"
+
+      - id: get_portfolio_tickers
+        type: io.kestra.plugin.scripts.python.Script
+        beforeCommands:
+          - pip install kestra
+        containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+        inputFiles:
+          portfolio.json: "{{ outputs.download_portfolio_file.uri }}"
+        outputFiles:
+          - "portfolio_positions.csv"
+        script: |
+          import json
+          import pandas as pd
+          from kestra import Kestra
+
+          with open("portfolio.json", 'r') as file:
+              positions_data = json.load(file)
+
+          portfolio_df = pd.DataFrame(positions_data)
+          portfolio_tickers = portfolio_df.ticker.tolist()
+
+          portfolio_df.to_csv("portfolio_positions.csv", index=False)
+          Kestra.outputs({'portfolio_tickers': portfolio_tickers})
+
+      - id: store_portfolio_tickers_in_KV
+        type: io.kestra.plugin.core.kv.Set
+        kvType: JSON
+        key: portfolio_tickers
+        value: "{{ outputs.get_portfolio_tickers.vars.portfolio_tickers }}"
+
+      - id: upload_portfolio_tickers_to_gcs
+        type: io.kestra.plugin.gcp.gcs.Upload
+        from: "{{render(vars.portfolio_tickers_data)}}"
+        to: "{{render(vars.portfolio_tickers_gcs_file)}}"
+
+      - id: copy_portfolio_positions_into_table
+        type: io.kestra.plugin.gcp.bigquery.Query
+        sql: |
+          CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.portfolio_positions_table)}}`
+          (
+              ticker STRING OPTIONS (description = 'The ticker symbol from Yahoo! Finance.')
+              , type STRING OPTIONS (description = 'Buy or Sell position.')
+              , timestamp TIMESTAMP OPTIONS (description = 'Position timestamp.')
+              , volume NUMERIC OPTIONS (description = 'Position volume.')
+              , volume_type STRING OPTIONS (description = 'Volume type (shares).')
+          )
+          OPTIONS (
+              format = 'CSV',
+              uris = ['{{render(vars.portfolio_tickers_gcs_file)}}'],
+              skip_leading_rows = 1,
+              ignore_unknown_values = TRUE
+          );
+    else:
+      - id: log_found_portfolio_tickers_in_KV
+        type: io.kestra.plugin.core.log.Log
+        message: |
+          Found keys in KV.
+
+    finally:
+      - id: read_portfolio_tickers_list
+        type: io.kestra.plugin.core.kv.Get
+        key: portfolio_tickers
+
+      - id: read_all_tickers_list
+        type: io.kestra.plugin.core.kv.Get
+        key: all_tickers
+
+      - id: check_portfolio_tickers_in_all_tickers
+        type: io.kestra.plugin.scripts.python.Script
+        containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
+        beforeCommands:
+          - pip install kestra
+        env:
+          portfolio_tickers: "{{outputs.read_portfolio_tickers_list.value}}"
+          all_tickers: "{{outputs.read_all_tickers_list.value}}"
+        script: |
+          import os
+          import ast
+          from kestra import Kestra
+          import pandas as pd
+          
+          # all_tickers_df = pd.read_csv('all_tickers.csv')
+          # all_tickers ','.join(all_tickers_df.ticker.values.tolist())
+          portfolio_tickers = ast.literal_eval(os.getenv('portfolio_tickers'))
+          all_tickers = ast.literal_eval(os.getenv('all_tickers'))
+          missing_tickers = []
+          for pt in portfolio_tickers:
+            if pt not in all_tickers:
+              missing_tickers.append(pt)
+          
+          Kestra.outputs({'missing_tickers': list(set(missing_tickers))})
+
+      - id: if_tickers_missing
+        type: io.kestra.plugin.core.flow.If
+        condition: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers | length > 0}}"
+        then:
+          - id: missing_portfolio_tickers_data
+            type: io.kestra.plugin.core.log.Log
+            message: |
+              Missing following tickers:
+              "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}."
+
+          - id: subflow_run_backfill
+            type: io.kestra.plugin.core.flow.Subflow
+            namespace: ppt-project
+            flowId: subflow_ticker_history
+            inputs:
+              region: missing_tickers
+              tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
+              backfill_all: true
+              data_from: "{{execution.startDate | dateAdd(-1, 'DAYS')}}"
+              data_to: "{{execution.startDate | dateAdd(-1, 'DAYS')}}"
+
+          - id: update_all_tickers_list
+            type: io.kestra.plugin.scripts.python.Script
+            beforeCommands:
+              - pip install kestra
+            # containerImage: python
+            env:
+              missing_tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
+              all_tickers: "{{outputs.read_all_tickers_list.value}}"
+            script: |
+              import os
+              import ast
+              from kestra import Kestra
+
+              missing_tickers = ast.literal_eval(os.getenv('missing_tickers'))
+              all_tickers_envv = os.getenv('all_tickers')
+              if all_tickers_envv:
+                all_tickers = ast.literal_eval(all_tickers_envv)
+              else:
+                all_tickers = []
+
+              # print(f"missing_tickers: {missing_tickers}")
+              # print(f"all_tickers: {all_tickers}")
+
+              Kestra.outputs({'all_tickers': sorted(list(set(
+                all_tickers + missing_tickers
+              )))})
+
+          - id: store_updated_all_tickers_in_KV
+            type: io.kestra.plugin.core.kv.Set
+            kvType: JSON
+            key: all_tickers
+            value: "{{ outputs.update_all_tickers_list.vars.all_tickers }}"
+            overwrite: true
+        else:
+          - id: log_no_portfolio_tickers_missing
+            type: io.kestra.plugin.core.log.Log
+            message: All portfolio tickers are already in the data.
+
+  - id: purge_files
+    type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
+    description: To avoid cluttering your storage, we will remove the downloaded files
+
+
+pluginDefaults:
+  - type: io.kestra.plugin.gcp
+    values:
+      serviceAccount: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+      projectId: "{{kv('GCP_PROJECT_ID')}}"
+      location: "{{kv('GCP_LOCATION')}}"
+      bucket: "{{kv('GCP_BUCKET_NAME')}}"

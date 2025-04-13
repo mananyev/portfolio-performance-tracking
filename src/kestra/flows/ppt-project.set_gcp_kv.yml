@@ -1,0 +1,68 @@
+id: set_gcp_kv
+namespace: ppt-project
+
+
+inputs:
+  - id: branch
+    type: STRING
+    defaults: main
+
+
+tasks:
+  # GitHub branch name
+  - id: set_branch
+    type: io.kestra.plugin.core.kv.Set
+    key: BRANCH
+    kvType: STRING
+    value: "{{inputs.branch}}"
+
+  # Links to indices' constituents pages and portfolio
+  # Indices' constituents JSON
+  - id: set_portfolio_link
+    type: io.kestra.plugin.core.kv.Set
+    key: PORTFOLIO_LINK
+    kvType: STRING
+    value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/portfolio.json'}}"
+  # Portfolio JSON
+  - id: set_constituents_link
+    type: io.kestra.plugin.core.kv.Set
+    key: CONSTITUENTS_LINKS
+    kvType: STRING
+    value: "{{'https://raw.githubusercontent.com/mananyev/portfolio-performance-tracking/refs/heads/' ~ inputs.branch ~ '/src/inputs/index_constituents_links.json'}}"
+
+  # GCP - make sure you adjust these values!
+  - id: gcp_project_id
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_PROJECT_ID
+    kvType: STRING
+    value: "{{ envs.project }}"
+
+  - id: gcp_location
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_LOCATION
+    kvType: STRING
+    value: "{{ envs.location }}"
+
+  - id: gcp_bucket_name
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_BUCKET_NAME
+    kvType: STRING
+    value: "{{ envs.gcs_bucket_name }}"  # make sure it's globally unique!
+
+  - id: gcp_dataset
+    type: io.kestra.plugin.core.kv.Set
+    key: GCP_DATASET
+    kvType: STRING
+    value: "{{ envs.bq_dataset_name }}"
+
+  # Common tables
+  - id: set_all_tickers_table_name
+    type: io.kestra.plugin.core.kv.Set
+    key: all_tickers_table
+    kvType: STRING
+    value: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.all_tickers'}}"  # you can change if you want
+  - id: set_all_tickers_prices_table_name
+    type: io.kestra.plugin.core.kv.Set
+    key: all_tickers_prices_table
+    kvType: STRING
+    value: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.all_tickers_prices'}}"  # you can change if you want

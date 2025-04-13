@@ -10,7 +10,6 @@ variable "credentials" {
 variable "project" {
   # This is the same project I used for the DE-zoomcamp.
   description = "DE-zoomcamp project: Portfolio performance tracking"
-  default     = "peaceful-tome-448411-p7"
 }
 
 variable "region" {
@@ -35,7 +34,6 @@ variable "bq_dataset_name" {
 variable "gcs_bucket_name" {
   # Update the below to a unique bucket name
   description = "Portfolio Performance Tracking Bucket"
-  default     = "ma-portfolio-performance-tracking-bucket"
 }
 
 variable "gcs_storage_class" {

@@ -1,0 +1,63 @@
+id: bigquery_dbt
+namespace: ppt-project
+
+
+inputs:
+  - id: first_dbt_run
+    type: BOOLEAN
+    defaults: false
+  - id: dbt_command
+    type: SELECT
+    allowCustomValue: true
+    defaults: dbt build
+    values:
+      - dbt build
+      - dbt debug # use when running the first time to validate DB connection
+
+
+tasks:
+  - id: check_first_dbt_run
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{ inputs.first_dbt_run == true }}"
+    then:
+      - id: sync
+        type: io.kestra.plugin.git.SyncNamespaceFiles
+        url: https://github.com/mananyev/portfolio-performance-tracking
+        branch: "{{ kv('BRANCH') }}"
+        namespace: "{{ flow.namespace }}"
+        gitDirectory: src/dbt/dbt/ppt
+        dryRun: false
+
+  - id: dbt-build
+    type: io.kestra.plugin.dbt.cli.DbtCLI
+    env:
+      DBT_DATABASE: "{{kv('GCP_PROJECT_ID')}}"
+      DBT_SCHEMA: "{{kv('GCP_DATASET')}}"
+    namespaceFiles:
+      enabled: true
+    containerImage: ghcr.io/kestra-io/dbt-bigquery:latest
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      networkMode: host
+    commands:
+      - dbt deps
+      - "{{ inputs.dbt_command }}"
+    storeManifest:
+      key: manifest.json
+      namespace: "{{ flow.namespace }}"
+    inputFiles:
+      sa.json: "{{secret('GCP_SERVICE_ACCOUNT')}}"
+    profiles: |
+      ppt:
+        outputs:
+          dev:
+            type: bigquery
+            method: service-account
+            keyfile: sa.json
+            project: "{{kv('GCP_PROJECT_ID')}}"
+            dataset: "{{kv('GCP_DATASET')}}"
+            location: "{{kv('GCP_LOCATION')}}"
+            priority: interactive
+        target: dev
+    description: |
+      Risk-return profile and net gain and cumulative return dynamics.

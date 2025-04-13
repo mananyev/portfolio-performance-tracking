@@ -3,9 +3,6 @@ namespace: ppt-project
 
 
 inputs:
-  # - id: string_input
-  #   type: STRING
-  #   defaults: NVDA
   - id: region
     type: STRING
   - id: tickers
@@ -19,8 +16,6 @@ inputs:
 
 
 variables:
-  # ticker_history_file: "{{outputs.each_region.outputFiles['price_history.csv']}}"
-  # table: "public.ticker_{{outputs.each_region.vars.ticker | replace({'.': '_', '-': '_', ':': '_', '=': '_'})}}"
   region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ inputs.region ~ '_tickers_prices_table'}}"
   all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
   region_tickers_prices_data: "{{outputs.each_region.outputFiles['price_history.csv']}}"
@@ -42,7 +37,6 @@ tasks:
       - pip install yfinance html5lib kestra
     containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
     env:
-      # ticker: "{{inputs.string_input }}"
       tickers: "{{inputs.tickers}}"
       data_from: "{{inputs.data_from}}"
       data_to: "{{inputs.data_to}}"
@@ -52,23 +46,6 @@ tasks:
     outputFiles:
       - price_history.csv
   
-  # # staging
-  # - id: create_single_region_tickers_table
-  #   type: io.kestra.plugin.jdbc.postgresql.Queries
-  #   sql: |
-  #     CREATE TABLE IF NOT EXISTS {{render(vars.table)}} (
-  #         unique_row_id text,
-  #         ticker        text,
-  #         date          date,
-  #         open          double precision,
-  #         high          double precision,
-  #         low           double precision,
-  #         close         double precision,
-  #         volume        bigint,
-  #         dividends     double precision,
-  #         stock_splits  real
-  #     );
-
   - id: upload_region_tickers_to_gcs
     type: io.kestra.plugin.gcp.gcs.Upload
     from: "{{render(vars.region_tickers_prices_data)}}"
@@ -150,11 +127,6 @@ tasks:
           T.stock_splits
         );
   
-  # - id: drop_single_ticker_table
-  #   type: io.kestra.plugin.jdbc.postgresql.Queries
-  #   sql: |
-  #     DROP TABLE IF EXISTS {{render(vars.region_tickers_prices_table)}};
-
   - id: purge_files
     type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
     description: To avoid cluttering your storage, we will remove the downloaded files

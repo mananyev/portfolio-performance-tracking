@@ -129,7 +129,8 @@ Portfolio update sub-flow:
 <details>
 <summary>See dbt DAGs here</summary>
 
-![dbt DAG](./assets/kestra_topology/dbt_DAG.png)
+![dbt DAG](./assets/screenshots/dbt-dag.png)
+(this graph was made with `dbt docs generate` using [local implementation](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra))
 </details>
 
 

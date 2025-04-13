@@ -19,7 +19,6 @@ variables:
   region: "{{outputs.extract.vars.region}}"
   region_tickers: "{{render(vars.region) ~ '_tickers'}}"
   all_tickers_table: "{{kv('all_tickers_table')}}"
-  # all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
   region_tickers_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ render(vars.region) ~ '_tickers_table'}}"
   region_tickers_prices_table: "{{kv('GCP_PROJECT_ID') ~ '.' ~ kv('GCP_DATASET') ~ '.' ~ render(vars.region) ~ '_tickers_prices_table'}}"
   region_tickers_data: "{{outputs.get_all_region_tickers.outputFiles['all_tickers.csv']}}"
@@ -117,8 +116,6 @@ tasks:
         beforeCommands:
           - pip install yfinance beautifulsoup4 lxml kestra html5lib
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
-        # env:
-        #   test_run: "{{inputs.test_run}}"
         inputFiles:
           data.json: "{{read(outputs.ion_to_json.uri)}}"
         outputFiles:
@@ -188,7 +185,6 @@ tasks:
         type: io.kestra.plugin.scripts.python.Script
         beforeCommands:
           - pip install kestra
-        # containerImage: python
         env:
           region_tickers: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
           all_tickers: "{{outputs.read_all_tickers_list.value}}"
@@ -203,9 +199,6 @@ tasks:
             all_tickers = ast.literal_eval(all_tickers_envv)
           else:
             all_tickers = []
-
-          # print(f"region_tickers: {region_tickers}")
-          # print(f"all_tickers: {all_tickers}")
 
           Kestra.outputs({'all_tickers': sorted(list(set(
             all_tickers + region_tickers
@@ -228,19 +221,13 @@ tasks:
     finally:
       - id: read_region_tickers_list
         type: io.kestra.plugin.core.kv.Get
-        key: "{{render(vars.region) ~ '_tickers'}}"
+        key: "{{render(vars.region_tickers)}}"
 
-        # - id: loop_over_tickers
-        #   type: io.kestra.plugin.core.flow.ForEach
-        #   concurrencyLimit: 8
-        #   values: "{{outputs.read_tickers_list.value | json}}"
-        #   tasks:
       - id: subflow_run
         type: io.kestra.plugin.core.flow.Subflow
         namespace: ppt-project
         flowId: subflow_ticker_history
         inputs:
-          # string_input: "{{taskrun.value}}"
           region: "{{render(vars.region)}}"
           tickers: "{{outputs.read_region_tickers_list.value}}"
           backfill_all: "{{inputs.backfill_all}}"
@@ -250,12 +237,6 @@ tasks:
       - id: purge_files
         type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
         description: To avoid cluttering your storage, we will remove the downloaded files
-
-
-# outputs:
-#   - id: tickers
-#     type: ARRAY
-#     value: "{{outputs.read_region_tickers_list.value}}"
 
 
 pluginDefaults:

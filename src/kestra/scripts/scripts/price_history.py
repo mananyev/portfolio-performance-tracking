@@ -20,5 +20,3 @@ if __name__ == "__main__":
     data = pull_history(tickers, start, end)
     df_final = prepare_dataframe(data)
     df_final.to_csv("price_history.csv", index=False)
-
-    # Kestra.outputs({'ticker': ticker})

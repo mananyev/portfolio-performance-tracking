@@ -2,10 +2,7 @@ version: 1
 
 sources:
   - name: staging
-    # not sure how to pass Kestra KVs to this schema YAML...
-    # so, keep it the same as in the 
-    database: "{{ target.project }}"   # dynamically resolves to GCP project
-    schema: "{{ target.dataset }}"     # resolves to the dataset in use
+    schema: "{{ target.schema }}"     # resolves to the dataset in use
 
     tables:
       - name: portfolio_positions

@@ -13,6 +13,7 @@ inputs:
     values:
       - dbt build
       - dbt debug # use when running the first time to validate DB connection
+      - dbt docs generate
 
 
 tasks:
@@ -38,11 +39,10 @@ tasks:
     containerImage: ghcr.io/kestra-io/dbt-postgres:latest
     taskRunner:
       type: io.kestra.plugin.scripts.runner.docker.Docker
-      networkMode: host
+      networkMode: ppt_project_net
     commands:
       - dbt deps
       - "{{ inputs.dbt_command }}"
-      - dbt docs generate
     storeManifest:
       key: manifest.json
       namespace: "{{ flow.namespace }}"

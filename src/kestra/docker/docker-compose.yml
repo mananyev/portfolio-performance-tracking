@@ -18,6 +18,8 @@ services:
       POSTGRES_DB: kestra
       POSTGRES_USER: kestra
       POSTGRES_PASSWORD: k3str4
+    networks:
+      - shared
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 30s
@@ -62,6 +64,8 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
+    networks:
+      - shared
     depends_on:
       kestra_postgres:
         condition: service_started

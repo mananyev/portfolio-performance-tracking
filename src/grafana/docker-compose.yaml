@@ -13,5 +13,7 @@ services:
     restart: unless-stopped
     ports:
       - '3000:3000'
+    networks:
+      - shared
     volumes:
       - grafana-storage:/var/lib/grafana

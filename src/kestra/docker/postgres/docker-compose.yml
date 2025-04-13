@@ -19,6 +19,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres-ppt-data:/var/lib/postgresql/data
+    networks:
+      - shared
 
   pgadmin:
     container_name: pgadmin
@@ -30,3 +32,5 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     ports:
       - "8088:80"
+    networks:
+      - shared

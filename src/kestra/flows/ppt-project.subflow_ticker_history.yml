@@ -31,6 +31,7 @@ tasks:
     message: |
       region: {{inputs.region}}
       tickers: {{inputs.tickers}}
+
   - id: each_region
     type: io.kestra.plugin.scripts.python.Commands
     namespaceFiles:

@@ -32,7 +32,7 @@ tasks:
     type: io.kestra.plugin.dbt.cli.DbtCLI
     env:
       DBT_DATABASE: "{{ kv('POSTGRES_DB_NAME') }}"
-      DBT_SCHEMA: public
+      DBT_SCHEMA: "{{ kv('POSTGRES_SCHEMA') }}"
     namespaceFiles:
       enabled: true
     containerImage: ghcr.io/kestra-io/dbt-postgres:latest
@@ -42,6 +42,7 @@ tasks:
     commands:
       - dbt deps
       - "{{ inputs.dbt_command }}"
+      - dbt docs generate
     storeManifest:
       key: manifest.json
       namespace: "{{ flow.namespace }}"
@@ -61,10 +62,4 @@ tasks:
             priority: interactive
         target: dev
     description: |
-      Note that you need to adjust the models/staging/schema.yml file to match your database and schema.
-      ```yaml
-      sources:
-        - name: staging
-          database: postgres-ppt
-          schema: public
-      ```
+      Yay!

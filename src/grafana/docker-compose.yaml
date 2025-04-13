@@ -1,5 +1,11 @@
 volumes:
   grafana-storage:
+
+networks:
+  shared:
+    external: true
+    name: ppt_project_net
+
 services:
   grafana:
     image: grafana/grafana-oss

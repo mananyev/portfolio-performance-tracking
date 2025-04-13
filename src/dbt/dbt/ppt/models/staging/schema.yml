@@ -4,8 +4,8 @@ sources:
   - name: staging
     # not sure how to pass Kestra KVs to this schema YAML...
     # so, keep it the same as in the 
-    database: postgres-ppt
-    schema: ppt
+    database: "{{ target.project }}"   # dynamically resolves to GCP project
+    schema: "{{ target.dataset }}"     # resolves to the dataset in use
 
     tables:
       - name: portfolio_positions

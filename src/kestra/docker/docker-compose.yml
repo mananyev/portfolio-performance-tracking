@@ -4,6 +4,11 @@ volumes:
   kestra-data:
     driver: local
 
+networks:
+  shared:
+    external: true
+    name: ppt_project_net
+
 services:
   kestra_postgres:
     image: postgres

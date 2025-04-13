@@ -9,16 +9,18 @@
 # # test
 # docker run hello-world
 
+echo "Create docker network"
+docker network create ppt_project_net
+
 echo "Setting up Kestra. This might take a while (if running for the first time)."
 echo ""
-docker-compose -f ./src/kestra/docker/docker-compose.yml up -d
-
-echo 'sleep 1 minute'
-sleep 60
+docker-compose -f ./src/kestra/docker/docker-compose.yml up -d --remove-orphans
+echo "Sleeping for 30 seconds to make sure Kestra is launched"
+sleep 30
 
 echo "Setting up Postgres. This might take a while (if running for the first time)."
 echo ""
-docker-compose -f ./src/kestra/docker/postgres/docker-compose.yml up -d
+docker-compose -f ./src/kestra/docker/postgres/docker-compose.yml up -d --remove-orphans
 sleep 10
 
 echo "Creating a system flow to synchronize namespace flows."
@@ -62,4 +64,4 @@ sleep 10
 
 echo "Setting up Grafana. This might take a while (if running for the first time)."
 echo ""
-docker-compose -f ./src/grafana/docker-compose.yaml up -d
+docker-compose -f ./src/grafana/docker-compose.yaml up -d --remove-orphans

@@ -2,6 +2,11 @@ volumes:
   postgres-ppt-data:
   pgadmin_data:
   
+networks:
+  shared:
+    external: true
+    name: ppt_project_net
+
 services:
   postgres-ppt:
     image: postgres

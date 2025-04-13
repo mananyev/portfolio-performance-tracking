@@ -11,10 +11,13 @@ inputs:
     type: STRING
   - id: data_to
     type: STRING
+  - id: reload_tickers_list
+    type: BOOLEAN
 
 
 variables:
   region: "{{outputs.extract.vars.region}}"
+  region_tickers: "{{render(vars.region) ~ '_tickers'}}"
   all_tickers_table: "{{kv('all_tickers_table')}}"
   # all_tickers_prices_table: "{{kv('all_tickers_prices_table')}}"
   region_tickers_table: "{{kv('POSTGRES_SCHEMA') ~ '.' ~ render(vars.region) ~ '_tickers_table'}}"
@@ -86,13 +89,28 @@ tasks:
     sql: |
       TRUNCATE TABLE {{render(vars.region_tickers_table)}};
 
+  - id: check_reload_tickers
+    type: io.kestra.plugin.core.flow.If
+    condition: "{{inputs.reload_tickers_list == true}}"
+    then:
+      - id: clear_region_tickers_list
+        type: io.kestra.plugin.core.kv.Delete
+        key: "{{render(vars.region_tickers)}}"
+        errorOnMissing: false
+
+      - id: set_region_tickers_kv
+        type: io.kestra.plugin.core.kv.Set
+        key: "{{render(vars.region_tickers)}}"
+        kvType: STRING
+        value: ""
+
   - id: get_all_region_tickers_from_KV
     type: io.kestra.plugin.core.kv.Get
-    key: "{{render(vars.region) ~ '_tickers'}}"
+    key: "{{render(vars.region_tickers)}}"
 
   - id: check_missing_KV
     type: io.kestra.plugin.core.flow.If
-    condition: "{{outputs.get_all_region_tickers_from_KV | length == 0}}"
+    condition: "{{outputs.get_all_region_tickers_from_KV.value | length == 0}}"
     then:
       - id: log_missing_tickers_in_KV
         type: io.kestra.plugin.core.log.Log
@@ -118,7 +136,7 @@ tasks:
       - id: store_tickers_in_KV
         type: io.kestra.plugin.core.kv.Set
         kvType: JSON
-        key: "{{render(vars.region) ~ '_tickers'}}"
+        key: "{{render(vars.region_tickers)}}"
         value: "{{outputs.get_all_region_tickers.vars.all_tickers}}"
 
       - id: copy_tickers_list_into_staging_table
@@ -178,7 +196,11 @@ tasks:
           from kestra import Kestra
 
           region_tickers = ast.literal_eval(os.getenv('region_tickers'))
-          all_tickers = ast.literal_eval(os.getenv('all_tickers'))
+          all_tickers_envv = os.getenv('all_tickers')
+          if all_tickers_envv:
+            all_tickers = ast.literal_eval(all_tickers_envv)
+          else:
+            all_tickers = []
 
           # print(f"region_tickers: {region_tickers}")
           # print(f"all_tickers: {all_tickers}")
@@ -204,7 +226,7 @@ tasks:
     finally:
       - id: read_region_tickers_list
         type: io.kestra.plugin.core.kv.Get
-        key: "{{render(vars.region) ~ '_tickers'}}"
+        key: "{{render(vars.region_tickers)}}"
 
         # - id: loop_over_tickers
         #   type: io.kestra.plugin.core.flow.ForEach
@@ -226,12 +248,6 @@ tasks:
       - id: purge_files
         type: io.kestra.plugin.core.storage.PurgeCurrentExecutionFiles
         description: To avoid cluttering your storage, we will remove the downloaded files
-
-
-outputs:
-  - id: tickers
-    type: ARRAY
-    value: "{{outputs.read_region_tickers_list.value}}"
 
 
 pluginDefaults:

@@ -30,7 +30,7 @@ Various types of analysis can be built on top of this foundation.
 
 ### 1.2 Final Dashboard
 
-Here is the [link](https://lookerstudio.google.com/s/vaDl_y1V2eA) to the Dashboard in Looker.
+Here is the [link](https://lookerstudio.google.com/s/vaDl_y1V2eA) to the Dashboard in Looker Studio.
 
 ---
 > [!NOTE]
@@ -38,7 +38,7 @@ Here is the [link](https://lookerstudio.google.com/s/vaDl_y1V2eA) to the Dashboa
 
 ---
 
-![Dashboard in Looker](./assets/screenshots/looker_dashboard.png)
+![Dashboard in Looker Studio](./assets/screenshots/looker_dashboard.png)
 
 [^1]: Trade Republic shows the statistics and the dynamics for returns/gains of the performance portfolio you currently have, not for the portfolio you want to check/compare.
 
@@ -62,6 +62,7 @@ For the GCP setup, the following tools have been used
 5. Analytical transformations are managed with [dbt Labs](https://www.getdbt.com/).
 6. Dashboard in [Looker](https://cloud.google.com/looker-bi).
 7. Easy installation with a bash script.
+8. Available for development in a cloud and locally: two branches for different setups.
 
 ![Pipeline](./assets/screenshots/pipeline_gcp_kestra_1.png)
 
@@ -70,7 +71,7 @@ For the GCP setup, the following tools have been used
 For installation on GCP you need:
 
 - a GCP project,
-- a VM instance created in that project,
+- a VM instance created in that project that you can access with SSH,
 - a service account with admin roles for Storage and BigQuery[^admin], and
 - a credentials `.json` file for that service account.
 
@@ -188,6 +189,11 @@ The request rate is known to be limited.
 The code uses high rate of requests when getting the stock data (ticker symbol, sector, industry, etc.) for a given index: the higher the number of stocks in the index, the higher the chances that you might hit the rate limit.
 
 In order to avoid hitting rate limitation when getting more stocks data (e.g. by adding more indices and their constituents links), consider adding smaller indices into the JSON file with links to index constituents.
+
+Problems I've encountered so far:
+
+- having regions/index constituents with too many ticker symbol entries may result in `yfinance` giving an error, especially when running multiple regions at a time.
+- occasionally ran into `OperationalError('database is locked')` when updating portfolio - resulting in some portfolio tickers missing (solved with a complete re-run from the scratch).
 
 ### 4.4 Regional Market Analysis
 

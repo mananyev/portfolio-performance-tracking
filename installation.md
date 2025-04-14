@@ -5,12 +5,17 @@
 
 ## 1. Prerequisites
 
-You must have a configured GCP project with a VM instance (I used a `e2-standard-4` instance with 20GB disk space because I had issues running the Kestra setup with backfill on a smaller, `e2-medium` instance). A service account with a credentials `.json` file (and access to BigQuery and Google Cloud Storage).
+You must have a configured GCP project with a VM instance that you can SSH into (I used a `e2-standard-4` instance with 20GB disk space because I had issues running the Kestra setup with backfill on a smaller, `e2-medium` instance). A service account with a credentials `.json` file (and access to BigQuery and Google Cloud Storage).
 
 > [!TIP]
 > You can follow [this video by Alexey from DataTalksClub](https://youtu.be/ae-CV2KfoN0?si=rVlCuFzk5AkfHLz_) to setup a VM with all the required credentials.
 
-1.  Make sure you have Docker and `docker-compose` installed on your machine.
+1.  Quite obvious, but you need to have git installed on your VM. If that's not the case:
+
+    1. Simply run `sudo apt-get install git` on Linux.
+    2. Install [git bash](https://git-scm.com/downloads) for Windows (however, I never tested a VM on Windows).
+
+2.  Make sure you have Docker and `docker-compose` installed on your machine.
 
     > [!NOTE]
     > To install in Linux terminal, run:
@@ -26,7 +31,7 @@ You must have a configured GCP project with a VM instance (I used a `e2-standard
     > [!TIP]
     > If you are having a "permission denied error", follow [these steps](https://stackoverflow.com/a/48957722).
 
-2.  Make sure you have Terraform installed
+3.  Make sure you have Terraform installed
 
     > [!NOTE]
     > To install Terraform on Linux, run:
@@ -39,15 +44,18 @@ You must have a configured GCP project with a VM instance (I used a `e2-standard
     >
     > For Windows installation, [download](https://developer.hashicorp.com/terraform/install) a binary file.
 
-3.  Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/main), and navigate to the cloned repository folder (e.g. `cd ~/portfolio-performance-tracking/`).
+4.  Clone the [repository](https://github.com/mananyev/portfolio-performance-tracking/tree/main), and navigate to the cloned repository folder (e.g. `cd ~/portfolio-performance-tracking/`).
 
     > [!IMPORTANT]
     > Make sure you are switched to the `main` branch.
 
-4.  Create a `.env` file with environment variables: link to the GCP credentials file to be used in Kestra, and set parameters for a BigQuery dataset and a GCS bucket.
+5.  Create a `.env` file with environment variables: link to the GCP credentials file to be used in Kestra, and set parameters for a BigQuery dataset and a GCS bucket.
     
     > [!TIP]
     > You can find a [template](./.gc/.env_template) to set the environment variables in the `.gc/` folder. Simply copy that folder into your HOME directory, rename it as `.env`, and edit the `.env` file.
+
+    > [!NOTE]
+    > I recommend puting your service account credentials file into the same folder with .env file (i.e. `~/.gc/`).
     
     Environment variables:
 
@@ -88,7 +96,7 @@ You must have a configured GCP project with a VM instance (I used a `e2-standard
         1. `TF_VAR_bq_dataset_name=\your\preferred\dataset\name`
         2. uses `portfolio_tracking` by default
 
-5.  After you have the `.env` file ready, *source* the [bash script](./.gc/set_environment.sh) in that `.gc/` folder to set the variables for Terraform and Kestra aligned:
+6.  After you have the `.env` file ready, *source* the [bash script](./.gc/set_environment.sh) in that `.gc/` folder to set the variables for Terraform and Kestra aligned:
 
     1. navigate to `.gc/` folder: `cd ~/.gc/`
     2. run `source set_environment.sh`

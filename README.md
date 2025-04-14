@@ -208,18 +208,16 @@ The main purpose for this data pipeline is to create a well-rounded clean databa
 Although the main goal is achieved with the current implementation, I believe it can be further greatly improved.
 Major improvement steps, as I envision them, include:
 
-1. Add dbt models documentation.
-2. Add dbt tests.
-3.  An easy way to load a custom portfolio
+1.  An easy way to load a custom portfolio
 
     1. assuming an ML model producing an output with tickers (components), their transaction date, and traded volume (similar to the [example portfolio](./src/inputs/portfolio.json)), this pipeline needs to read the file from a local/cloud storage.
 
-4.  A benchmark functionality:
+2.  A benchmark functionality:
 
     1. Country/region indices, custom portfolios, or backtesting portfolios suggested by an ML model.
     2. Regional markets performance.
  
-5. GitHub Actions for CI/CD.
+3. GitHub Actions for CI/CD.
 
 
 ## 6. Acknowledgements

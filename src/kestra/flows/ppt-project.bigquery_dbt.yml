@@ -13,6 +13,8 @@ inputs:
     values:
       - dbt build
       - dbt debug # use when running the first time to validate DB connection
+      - dbt docs generate
+      - dbt test
 
 
 tasks:

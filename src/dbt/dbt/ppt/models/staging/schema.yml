@@ -1,4 +1,4 @@
-version: 1
+version: 2
 
 sources:
   - name: staging
@@ -7,4 +7,235 @@ sources:
 
     tables:
       - name: portfolio_positions
+        description: "Portfolio positions/transactions table."
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "volume >= 0"
+        columns:
+          - name: ticker
+            description: |
+              Ticker symbol as reported at Yahoo! Finance (e.g. 'NVDA').
+            tests:
+              - not_null
+          - name: type
+            description: |
+              Position type: 'buy' or 'sell'.
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['buy', 'sell']
+          - name: timestamp
+            description: |
+              Timestamp when position was executed.
+            tests:
+              - not_null
+          - name: volume
+            description: |
+              Volume of the transaction.
+            tests:
+              - not_null
+          - name: volume_type
+            description: |
+              Type of the volume for the transaction.
+              Currently, only 'shares' is implemented.
+            tests:
+              - accepted_values:
+                  values: ['shares']
+
       - name: all_tickers_prices
+        description: "Historical prices table."
+        columns:
+          - name: unique_row_id
+            description: |
+              Unique ID of the row (date- and ticker- based).
+            tests:
+              - not_null
+              - unique
+          - name: ticker
+            description: |
+              Ticker symbol as reported at Yahoo! Finance (e.g. 'NVDA').
+            tests:
+              - not_null
+          - name: date
+            description: |
+              Date for which the prices in the row are reported.
+            tests:
+              - not_null
+          - name: open
+            description: |
+              Open price for the day.
+          - name: high
+            description: |
+              High price for the day.
+          - name: low
+            description: |
+              Low price for the day.
+          - name: close
+            description: |
+              Close price for the day.
+          - name: volume
+            description: |
+              Daily traded volume.
+          - name: dividends
+            description: |
+              Dividends issued on a given date.
+          - name: stock_splits
+            description: |
+              Stock splits issued on a given date.
+
+# All staging models
+models:
+  - name: stg_portfolio_positions
+    description: "Position changes."
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: source('staging', 'portfolio_positions')
+              field: ticker
+      - name: date
+        data_type: date
+        description: "Date of the transaction."
+        tests:
+          - not_null
+      - name: volume
+        data_type: double precision
+        description: |
+          Volume of the transaction (in shares).
+          Can be positive and negative:
+          - Positive means adding the position to the portfolio (buying).
+          - Negative means withdrawing the position (selling).
+        tests:
+          - not_null
+
+  - name: stg_tickers_prices
+    description: "Cleaned table with all tickers prices."
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "close >= 0"
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: source('staging', 'all_tickers_prices')
+              field: ticker
+      - name: date
+        data_type: date
+        description: "Date for which the prices in the row are reported."
+        tests:
+          - not_null
+          - relationships:
+              to: source('staging', 'all_tickers_prices')
+              field: date
+      - name: close
+        data_type: double precision
+        description: "Close price"
+      - name: volume
+        data_type: bigint
+        description: "Daily traded volume."
+      - name: dividends
+        data_type: double precision
+        description: "Dividends issued on a given date."
+      - name: stock_splits
+        data_type: real
+        description: "Stock splits issued on a given date."
+
+  - name: stg_tickers_returns
+    description: "Tickers daily close price with daily (log-)returns."
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "close >= 0"
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tickers_prices')
+              field: ticker
+      - name: date
+        data_type: date
+        description: "Date."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tickers_prices')
+              field: date
+      - name: close
+        data_type: double precision
+        description: "Close price on a given date."
+        tests:
+          - not_null
+      - name: return
+        data_type: double precision
+        description: "Ticker's daily return."
+      - name: log_return
+        data_type: double precision
+        description: "Ticker's daily log-return"
+
+  - name: stg_portfolio_returns
+    description: "Portfolio components' daily close prices and daily returns."
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "close >= 0"
+    columns:
+      - name: date
+        data_type: date
+        description: "Date for which the portfolio parameters are evaluated."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tickers_prices')
+              field: date
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tickers_prices')
+              field: ticker
+          - relationships:
+              to: ref('stg_portfolio_positions')
+              field: ticker
+      - name: close
+        data_type: double precision
+        description: "Portfolio ticker's close price for the given date."
+        tests:
+          - not_null
+      - name: return
+        data_type: double precision
+        description: "Portfolio ticker's daily return."
+        tests:
+          - not_null
+      - name: position
+        data_type: double precision
+        description: "Total position for the portfolio ticker on a given date."
+        tests:
+          - not_null
+      - name: cash_flow
+        data_type: double precision
+        description: |
+          The amount of cash invested/gained from
+          buying/selling an asset on a given date.
+        tests:
+          - not_null
+      - name: market_value
+        data_type: double precision
+        description: |
+          Market value for the asset in portfolio on a given date:
+          close price times position.
+        tests:
+          - not_null
+      - name: cost
+        data_type: double precision
+        description: "Total amount of cash invested in a given ticker."
+        tests:
+          - not_null

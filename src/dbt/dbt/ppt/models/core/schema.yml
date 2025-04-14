@@ -1,0 +1,246 @@
+version: 2
+
+# all fact models
+models:
+  - name: fct_components_returns
+    description: |
+      A table with returns, current market value,
+      and net gain/loss of the portfolio components' tickers.
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "close >= 0"
+    columns:
+      - name: date
+        data_type: date
+        description: "Date."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_portfolio_returns')
+              field: date
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_portfolio_returns')
+              field: ticker
+      - name: close
+        data_type: double precision
+        description: "Close price for the day."
+        tests:
+          - not_null
+      - name: return
+        data_type: double precision
+        description: "Return for the component's ticker on a given day."
+        tests:
+          - not_null
+      - name: net_value
+        data_type: double precision
+        description: "Net value of the component on a given day."
+        tests:
+          - not_null
+      - name: current_value
+        data_type: double precision
+        description: |
+          Current value of the component on a given day:
+          Null if no position exists in the portfolio for that day.
+      - name: position
+        data_type: double precision
+        description: "Total position for portfolio ticker at a given day."
+        tests:
+          - not_null
+
+  - name: fct_current_breakdown
+    description: |
+      Tickers that are still in portfolio and their values
+      (market value and gain/loss).
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol, that is still in portfolio."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_portfolio_returns')
+              field: ticker
+      - name: position
+        data_type: double precision
+        description: |
+          Total today's position for portfolio's ticker
+          that is still in portfolio.
+        tests:
+          - not_null
+      - name: individual_gain
+        data_type: double precision
+        description: |
+          Total individual gain, as of today, of a ticker
+          that is still in portfolio.
+        tests:
+          - not_null
+      - name: market_value
+        data_type: double precision
+        description: |
+          Today's market value of a ticker that is still in portfolio.
+        tests:
+          - not_null
+      - name: cost
+        data_type: double precision
+        description: "Total amount of cash invested in a given ticker."
+        tests:
+          - not_null
+      - name: current_gain
+        data_type: double precision
+        description: |
+          Current individual gain, as of today, of a ticker
+          that is still in portfolio.
+        tests:
+          - not_null
+
+  - name: fct_portfolio_dynamics
+    description: |
+      Daily dynamics of the portfolio values:
+      - total amount of cash invested,
+      - total market value,
+      - total net gain/loss,
+      - returns.
+    columns:
+      - name: date
+        data_type: date
+        description: "Date for which the portfolio parameters are evaluated."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_portfolio_returns')
+              field: date
+      - name: total_cost
+        data_type: double precision
+        description: |
+          Total amount of cash invested into the portfolio by the date.
+        tests:
+          - not_null
+      - name: total_value
+        data_type: double precision
+        description: "Total market value of the portfolio by the date."
+        tests:
+          - not_null
+      - name: net_value
+        data_type: double precision
+        description: "Total net value of the portfolio by the date"
+        tests:
+          - not_null
+      - name: portfolio_return
+        data_type: double precision
+        description: "Overall portfolio's daily return at a given date."
+        tests:
+          - not_null
+      - name: log_return
+        data_type: double precision
+        description: "Overall portfolio's daily log-return at a given date."
+      - name: cumulative_return
+        data_type: double precision
+        description: "Overall portfolio's cumulative daily return by the date."
+        tests:
+          - not_null
+
+  - name: fct_tickers_stats
+    description: "Individual risk-return statistics for each ticker."
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol"
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_tickers_returns')
+              field: ticker
+      - name: mean_daily_return
+        data_type: double precision
+        description: "Mean daily return."
+        tests:
+          - not_null
+      - name: std_daily_return
+        data_type: double precision
+        description: "Standard deviation of daily return."
+        tests:
+          - not_null
+      - name: annualized_return
+        data_type: double precision
+        description: "Annualized mean return."
+        tests:
+          - not_null
+      - name: annualized_volatility
+        data_type: double precision
+        description: "Annualized volatility."
+        tests:
+          - not_null
+
+  - name: fct_portfolio_stats
+    description: |
+      Individual risk-return statistics for the whole portfolio
+      based on the portfolio's history.
+    columns:
+      - name: ticker
+        data_type: text
+        description: "A single value: 'historical portfolio'"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['historical portfolio']
+      - name: mean_daily_return
+        data_type: double precision
+        description: "Mean daily portfolio's return."
+        tests:
+          - not_null
+      - name: std_daily_return
+        data_type: double precision
+        description: "Standard deviation of portfolio's daily return."
+        tests:
+          - not_null
+      - name: annualized_return
+        data_type: double precision
+        description: "Annualized mean return of the portfolio."
+        tests:
+          - not_null
+      - name: annualized_volatility
+        data_type: double precision
+        description: "Annualized volatility of the portfolio."
+        tests:
+          - not_null
+
+  - name: fct_components_stats
+    description: |
+      Individual risk-return statistics for portfolio components.
+    columns:
+      - name: ticker
+        data_type: text
+        description: "Ticker symbol."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_tickers_stats')
+              field: ticker
+          - relationships:
+              to: ref('stg_portfolio_positions')
+              field: ticker
+      - name: mean_daily_return
+        data_type: double precision
+        description: "Mean daily return."
+        tests:
+          - not_null
+      - name: std_daily_return
+        data_type: double precision
+        description: "Standard deviation of daily return."
+        tests:
+          - not_null
+      - name: annualized_return
+        data_type: double precision
+        description: "Annualized mean return."
+        tests:
+          - not_null
+      - name: annualized_volatility
+        data_type: double precision
+        description: "Annualized volatility."
+        tests:
+          - not_null

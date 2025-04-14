@@ -13,7 +13,8 @@ inputs:
     values:
       - dbt build
       - dbt debug # use when running the first time to validate DB connection
-      - dbt docs generate
+      - dbt docs serve --port 8888
+      - dbt test
 
 
 tasks:

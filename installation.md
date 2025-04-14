@@ -205,3 +205,124 @@ Grafana is available at [localhost:3000](http://localhost:3000).
          from ppt.fct_portfolio_dynamics;
          ```
          </details>
+
+
+## 5. Running Tests and Generating Documentation for dbt
+### 5.1 Testing and Generating dbt Documentation in Kestra
+
+This project comes with a number of simple tests aiming to ensure the high quality of the data.
+Both options for `dbt test` and `dbt docs serve` are implemented as an optional inputs for Kestra flow `postgres_dbt`.
+
+To use this feature, log into Kestra UI (at [localhost:8080](http://localhost:8080)), open the flows, open the `postgres_dbt` flow, click 'Execute' button, and select the desired option.
+
+> [!WARNING]
+>  At the moment, there is no easy way to acces the generated documentation. Several options can be found on [dbt docs](https://docs.getdbt.com/docs/build/documentation) or in [Medium articles](https://medium.com/dbt-local-taiwan/host-dbt-documentation-site-with-github-pages-in-5-minutes-7b80e8b62feb) but I failed to implement them in this project.
+
+Alternatively, you can run tests and generate docs from the CLI.
+
+### 5.2 Testing and Generating Documentation from CLI
+
+To run dbt from CLI in the current setup, you need to put the following `Docker` and `docker-compose.yaml` files into your `dbt` directory (where `ppt` project folder is located):
+
+<details>
+<summary>Docker file</summary>
+
+```
+ARG build_for=linux/amd64
+FROM --platform=$build_for python:3.12.2-slim-bullseye as base
+
+ARG dbt_core_ref=dbt-core@v1.7.10
+ARG dbt_postgres_ref=dbt-core@v1.7.10
+
+RUN apt-get update \
+  && apt-get dist-upgrade -y \
+  && apt-get install -y --no-install-recommends \
+    git \
+    ssh-client \
+    software-properties-common \
+    make \
+    build-essential \
+    ca-certificates \
+    libpq-dev \
+  && apt-get clean \
+  && rm -rf \
+    /var/lib/apt/lists/* \
+    /tmp/* \
+    /var/tmp/*
+
+ENV PYTHONIOENCODING=utf-8
+ENV LANG=C.UTF-8
+
+RUN python -m pip install --upgrade pip setuptools wheel pytz --no-cache-dir
+
+WORKDIR /usr/app/dbt/
+VOLUME /usr/app
+ENTRYPOINT ["dbt"]
+
+FROM base as dbt-core
+RUN python -m pip install --no-cache-dir "git+https://github.com/dbt-labs/${dbt_core_ref}#egg=dbt-core&subdirectory=core"
+
+FROM base as dbt-postgres
+RUN python -m pip install --no-cache-dir "git+https://github.com/dbt-labs/${dbt_postgres_ref}#egg=dbt-postgres&subdirectory=plugins/postgres"
+```
+</details>
+
+<details>
+<summary>docker-compose.yaml</summary>
+
+```
+services:
+  dbt-ppt-project-postgres:
+    build:
+      context: .
+      target: dbt-postgres
+    image: dbt/postgres
+    volumes:
+      - .:/usr/app
+      - ~/.dbt/:/root/.dbt/
+    network_mode: ppt_project_net
+```
+</details>
+
+Before you run dbt CLI commands, it is useful to create profiles.yml file in your `HOME/.dbt` (e.g. `~/.dbt/profiles.yml`) directory:
+
+> [!NOTE]
+> The values in the profile should correspond to the values passed to dbt task in [`postgres_dbt` Kestra flow](./src/kestra/flows/ppt-project.postgres_dbt.yml).
+
+```YAML
+ppt:
+  outputs:
+    dev:
+      dbname: postgres-ppt
+      host: postgres-ppt
+      pass: k3str4
+      port: 5432
+      schema: ppt
+      threads: 1
+      type: postgres
+      user: kestra
+  target: dev
+```
+
+Navigate to the directory with these files and run the following commands:
+
+```bash
+# in dbt folder:
+docker-compose build
+docker-compose run dbt-ppt-project-postgres init  # to initialize profiles if you have not created `profiles.yml` in ~/.dbt/
+# enter corresponding values if needed
+# test dbt
+docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres debug
+# install packages
+docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres deps
+# run dbt tests
+docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres test
+# dbt docs
+docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres docs generate
+# try:
+docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres docs serve --port 8888
+# if no http://localhost:8888 is available but you have Python, then run
+cd path/to/your/target  # in my case it was: ./src/dbt/dbt/ppt/targe
+python -m http.server 8888
+# now, you can access http://localhost:8888
+```

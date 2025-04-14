@@ -2,15 +2,23 @@ id: subflow_synchronize_portfolio
 namespace: ppt-project
 description: |
   Synchronize portfolio tickers.
+  Loads data if finds tickers that are missing in
+  the stored list of all tickers in the database.
 
 
 inputs:
   - id: backfill_all
     type: BOOLEAN
+    description: |
+      Whether pull the whole available history, regardless of the time period.
   - id: data_from
     type: STRING
+    description: |
+      Start of the period, for which to pull the price histories.
   - id: data_to
     type: STRING
+    description: |
+      End of the period, for which to pull the price histories.
 
 
 variables:
@@ -22,10 +30,14 @@ variables:
 tasks:
   - id: get_portfolio_tickers_from_KV
     type: io.kestra.plugin.core.kv.Get
+    description: |
+      Reads the portfolio tickers from KV.
     key: portfolio_tickers
 
   - id: check_missing_kv
     type: io.kestra.plugin.core.flow.If
+    description: |
+      Checks if the KV with portfolio tickers contains nothing.
     condition: "{{ outputs.get_portfolio_tickers_from_KV.value | length == 0 }}"
     then:
       - id: log_missing_tickers_in_KV
@@ -35,10 +47,17 @@ tasks:
 
       - id: download_portfolio_file
         type: io.kestra.plugin.core.http.Download
+        description: |
+          Downloads the file with portfolio positions from the repo.
         uri: "{{kv('PORTFOLIO_LINK')}}"
 
       - id: get_portfolio_tickers
         type: io.kestra.plugin.scripts.python.Script
+        description: |
+          Reads the portfolio positions from the downloaded JSON file.
+          Uses Python script.
+          Outputs a CSV file with all postitions, volumes, and dates.
+          Outputs a list of unique tickers in the portfolio.
         beforeCommands:
           - pip install kestra
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
@@ -58,21 +77,28 @@ tasks:
           portfolio_tickers = portfolio_df.ticker.tolist()
 
           portfolio_df.to_csv("portfolio_positions.csv", index=False)
-          Kestra.outputs({'portfolio_tickers': portfolio_tickers})
+          Kestra.outputs({'portfolio_tickers': list(set(portfolio_tickers))})
 
       - id: store_portfolio_tickers_in_KV
         type: io.kestra.plugin.core.kv.Set
+        description: |
+          Saves unique portfolio tickers in a KV.
         kvType: JSON
         key: portfolio_tickers
         value: "{{ outputs.get_portfolio_tickers.vars.portfolio_tickers }}"
 
       - id: upload_portfolio_tickers_to_gcs
         type: io.kestra.plugin.gcp.gcs.Upload
+        description: |
+          Uploads portfolio positions to the GCS bucket.
         from: "{{render(vars.portfolio_tickers_data)}}"
         to: "{{render(vars.portfolio_tickers_gcs_file)}}"
 
       - id: copy_portfolio_positions_into_table
         type: io.kestra.plugin.gcp.bigquery.Query
+        description: |
+          Copies the positions data from the uploaded file
+          into a BigQuery table.
         sql: |
           CREATE OR REPLACE EXTERNAL TABLE `{{render(vars.portfolio_positions_table)}}`
           (
@@ -97,14 +123,20 @@ tasks:
     finally:
       - id: read_portfolio_tickers_list
         type: io.kestra.plugin.core.kv.Get
+        description: |
+          Reads (updated) portfolio tickers.
         key: portfolio_tickers
 
       - id: read_all_tickers_list
         type: io.kestra.plugin.core.kv.Get
+        description: |
+          Reads a KV with saved all tickers in the database.
         key: all_tickers
 
       - id: check_portfolio_tickers_in_all_tickers
         type: io.kestra.plugin.scripts.python.Script
+        description: |
+          Checks if all portfolio tickers are already in the database.
         containerImage: ghcr.io/kestra-io/pydata:latest  # Pre-built image with Pandas
         beforeCommands:
           - pip install kestra
@@ -117,8 +149,6 @@ tasks:
           from kestra import Kestra
           import pandas as pd
           
-          # all_tickers_df = pd.read_csv('all_tickers.csv')
-          # all_tickers ','.join(all_tickers_df.ticker.values.tolist())
           portfolio_tickers = ast.literal_eval(os.getenv('portfolio_tickers'))
           all_tickers = ast.literal_eval(os.getenv('all_tickers'))
           missing_tickers = []
@@ -130,6 +160,8 @@ tasks:
 
       - id: if_tickers_missing
         type: io.kestra.plugin.core.flow.If
+        description: |
+          Checks whether some portfolio tickers are missing in the database.
         condition: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers | length > 0}}"
         then:
           - id: missing_portfolio_tickers_data
@@ -140,6 +172,10 @@ tasks:
 
           - id: subflow_run_backfill
             type: io.kestra.plugin.core.flow.Subflow
+            description: |
+              Loads historical prices (for all available dates)
+              for the portfolio tickers missing in the database.
+              Uses a `subflow_ticker_history` subflow.
             namespace: ppt-project
             flowId: subflow_ticker_history
             inputs:
@@ -151,9 +187,11 @@ tasks:
 
           - id: update_all_tickers_list
             type: io.kestra.plugin.scripts.python.Script
+            description: |
+              Updates the list with saved all tickers in the database
+              with those additional ones found in portfolio.
             beforeCommands:
               - pip install kestra
-            # containerImage: python
             env:
               missing_tickers: "{{ outputs.check_portfolio_tickers_in_all_tickers.vars.missing_tickers }}"
               all_tickers: "{{outputs.read_all_tickers_list.value}}"
@@ -169,15 +207,14 @@ tasks:
               else:
                 all_tickers = []
 
-              # print(f"missing_tickers: {missing_tickers}")
-              # print(f"all_tickers: {all_tickers}")
-
               Kestra.outputs({'all_tickers': sorted(list(set(
                 all_tickers + missing_tickers
               )))})
 
           - id: store_updated_all_tickers_in_KV
             type: io.kestra.plugin.core.kv.Set
+            description: |
+              Saves the updated KV with all tickers in the database.
             kvType: JSON
             key: all_tickers
             value: "{{ outputs.update_all_tickers_list.vars.all_tickers }}"

@@ -217,3 +217,11 @@ That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and w
     3. Individual net value of portfolio positions over time (using `fct_components_returns`)
     4. Cumulative net value over time (using `fct_portfolio_dynamics`)
     5. Risk-return profiles (using Custom Query)
+
+
+## 5. Generating Documentation for dbt
+
+> [!WARNING]
+>  At the moment, there is no easy way to acces the generated documentation. Several options can be found on [dbt docs](https://docs.getdbt.com/docs/build/documentation) or in [Medium articles](https://medium.com/dbt-local-taiwan/host-dbt-documentation-site-with-github-pages-in-5-minutes-7b80e8b62feb) but I failed to implement them in this project.
+
+You can switch to [local implementation](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra) - there, I described how to generate and get access to docs. 

@@ -219,13 +219,9 @@ That's it! You can now navigate to your [Kestra UI](http://localhost:8080) and w
     5. Risk-return profiles (using Custom Query)
 
 
-## 5. Running Tests and Generating Documentation for dbt
-### 5.1 Testing in Kestra
-
-This project comes with a number of simple tests aiming to ensure the high quality of the data.
-Both options for `dbt test` and `dbt docs generate` are implemented as an optional inputs for Kestra flow `postgres_dbt`.
-
-To use these features, log into Kestra UI (at [localhost:8080](http://localhost:8080)), open the flows, open the `bigquery_dbt` flow, click 'Execute' button, and select the desired option.
+## 5. Generating Documentation for dbt
 
 > [!WARNING]
 >  At the moment, there is no easy way to acces the generated documentation. Several options can be found on [dbt docs](https://docs.getdbt.com/docs/build/documentation) or in [Medium articles](https://medium.com/dbt-local-taiwan/host-dbt-documentation-site-with-github-pages-in-5-minutes-7b80e8b62feb) but I failed to implement them in this project.
+
+You can switch to [local implementation](https://github.com/mananyev/portfolio-performance-tracking/tree/local/kestra) - there, I described how to generate and get access to docs. 

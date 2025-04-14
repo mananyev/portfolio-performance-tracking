@@ -207,21 +207,12 @@ Grafana is available at [localhost:3000](http://localhost:3000).
          </details>
 
 
-## 5. Running Tests and Generating Documentation for dbt
-### 5.1 Testing and Generating dbt Documentation in Kestra
-
-This project comes with a number of simple tests aiming to ensure the high quality of the data.
-Both options for `dbt test` and `dbt docs serve` are implemented as an optional inputs for Kestra flow `postgres_dbt`.
-
-To use this feature, log into Kestra UI (at [localhost:8080](http://localhost:8080)), open the flows, open the `postgres_dbt` flow, click 'Execute' button, and select the desired option.
+## 5. Generating Documentation for dbt
 
 > [!WARNING]
 >  At the moment, there is no easy way to acces the generated documentation. Several options can be found on [dbt docs](https://docs.getdbt.com/docs/build/documentation) or in [Medium articles](https://medium.com/dbt-local-taiwan/host-dbt-documentation-site-with-github-pages-in-5-minutes-7b80e8b62feb) but I failed to implement them in this project.
 
-Alternatively, you can run tests and generate docs from the CLI.
-
-### 5.2 Testing and Generating Documentation from CLI
-
+You can generate docs from the CLI.
 To run dbt from CLI in the current setup, you need to put the following `Docker` and `docker-compose.yaml` files into your `dbt` directory (where `ppt` project folder is located):
 
 <details>
@@ -315,8 +306,6 @@ docker-compose run dbt-ppt-project-postgres init  # to initialize profiles if yo
 docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres debug
 # install packages
 docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres deps
-# run dbt tests
-docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres test
 # dbt docs
 docker-compose run --remove-orphans --workdir="//usr/app/dbt/ppt" dbt-ppt-project-postgres docs generate
 # try:

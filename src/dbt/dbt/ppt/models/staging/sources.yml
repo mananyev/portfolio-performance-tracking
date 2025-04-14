@@ -1,0 +1,83 @@
+version: 2
+
+sources:
+  - name: staging
+    schema: "{{ target.schema }}"     # resolves to the dataset in use
+
+    tables:
+      - name: portfolio_positions
+        description: "Portfolio positions/transactions table."
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "volume >= 0"
+        columns:
+          - name: ticker
+            description: |
+              Ticker symbol as reported at Yahoo! Finance (e.g. 'NVDA').
+            tests:
+              - not_null
+          - name: type
+            description: |
+              Position type: 'buy' or 'sell'.
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['buy', 'sell']
+          - name: timestamp
+            description: |
+              Timestamp when position was executed.
+            tests:
+              - not_null
+          - name: volume
+            description: |
+              Volume of the transaction.
+            tests:
+              - not_null
+          - name: volume_type
+            description: |
+              Type of the volume for the transaction.
+              Currently, only 'shares' is implemented.
+            tests:
+              - accepted_values:
+                  values: ['shares']
+
+      - name: all_tickers_prices
+        description: "Historical prices table."
+        columns:
+          - name: unique_row_id
+            description: |
+              Unique ID of the row (date- and ticker- based).
+            tests:
+              - not_null
+              - unique
+          - name: ticker
+            description: |
+              Ticker symbol as reported at Yahoo! Finance (e.g. 'NVDA').
+            tests:
+              - not_null
+          - name: date
+            description: |
+              Date for which the prices in the row are reported.
+            tests:
+              - not_null
+          - name: open
+            description: |
+              Open price for the day.
+          - name: high
+            description: |
+              High price for the day.
+          - name: low
+            description: |
+              Low price for the day.
+          - name: close
+            description: |
+              Close price for the day.
+          - name: volume
+            description: |
+              Daily traded volume.
+          - name: dividends
+            description: |
+              Dividends issued on a given date.
+          - name: stock_splits
+            description: |
+              Stock splits issued on a given date.

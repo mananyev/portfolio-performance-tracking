@@ -104,6 +104,8 @@ Please, read the complete [installation guide here](./installation.md).
 5.  Data is transformed using `dbt` and loaded back to BigQuery.
 
     1. Includes the calculation of the risk-return profile for the whole portfolio, its individual components, and other tickers.
+    2. Implemented tests to ensure high data quality.
+    3. Documented tables and columns help clearly understand and better navigate (however, hosting Documentation is not implemented).
 
 6. Risk-return profile and portfolio's composition and performance are visualized in a Looker dashboard.
 
